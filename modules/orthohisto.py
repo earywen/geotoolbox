@@ -33,7 +33,8 @@ IGN_MOSAICS = [
 # ==========================================
 def ensure_folder(path):
     if not path or not os.path.exists(path):
-        base = core.get_base_path()
+        # CORRECTION ICI : Utilisation de get_user_dir() au lieu de get_base_path()
+        base = core.get_user_dir()
         path = os.path.join(base, f"Chronologie_{datetime.now().strftime('%Y%m%d_%H%M')}")
         os.makedirs(path, exist_ok=True)
     return path
@@ -83,20 +84,15 @@ def process_missions(lat, lon, folder_path, radius_m, callback=None, current_pro
     if callback: callback(current_prog, "Recherche Missions anciennes...")
     logging.info(f"Recherche WFS Missions anciennes autour de {lat}, {lon} ({radius_m}m)")
     
-    # --- CORRECTION MATHÉMATIQUE ---
-    # 1 deg de Latitude ~= 111.111 km (partout)
+    # 1 deg de Latitude ~= 111.111 km
     delta_lat = float(radius_m) / 111111.0
     
-    # 1 deg de Longitude dépend de la Latitude (rétrécit vers les pôles)
-    # Formule : 1 deg Lon = 111.111 * cos(lat)
-    # On divise par le cosinus pour obtenir l'équivalent en degrés
-    # Protection contre division par zéro (si on est au pôle nord exact, peu probable)
+    # 1 deg de Longitude dépend de la Latitude
     cos_lat = math.cos(math.radians(lat))
     if abs(cos_lat) < 0.0001: cos_lat = 0.0001
     delta_lon = delta_lat / cos_lat
 
     bbox = f"{lon-delta_lon},{lat-delta_lat},{lon+delta_lon},{lat+delta_lat}"
-    # -------------------------------
     
     wfs_base = core.CONFIG.get('orthohisto', {}).get('wfs_url')
     params = {
@@ -174,6 +170,8 @@ def process_missions(lat, lon, folder_path, radius_m, callback=None, current_pro
 
 def run_full_process(lat, lon, radius_m, folder_path_input, progress_callback=None):
     logging.info(f"=== Start Chronologie: {lat}, {lon} ===")
+    
+    # Appel de la fonction corrigée
     folder_path = ensure_folder(folder_path_input)
     logging.info(f"Dossier cible: {folder_path}")
     
@@ -188,13 +186,12 @@ def run_full_process(lat, lon, radius_m, folder_path_input, progress_callback=No
     logging.info("--- Phase 2 : Mosaïques > 1950 ---")
     if progress_callback: progress_callback(50, "Démarrage Mosaïques...")
     
-    # --- CORRECTION MATHÉMATIQUE AUSSI ICI ---
     delta_lat = float(radius_m) / 111111.0
     cos_lat = math.cos(math.radians(lat))
     if abs(cos_lat) < 0.0001: cos_lat = 0.0001
     delta_lon = delta_lat / cos_lat
     
-    wms_bbox = f"{lat-delta_lat},{lon-delta_lon},{lat+delta_lat},{lon+delta_lon}" # Format WMS 1.3.0 : LAT,LON,LAT,LON
+    wms_bbox = f"{lat-delta_lat},{lon-delta_lon},{lat+delta_lat},{lon+delta_lon}"
     
     total_mos = len(IGN_MOSAICS)
     step_mos = 50.0 / total_mos

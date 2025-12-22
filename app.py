@@ -5,13 +5,14 @@ import base64
 import json
 import tempfile
 import pathlib
-import atexit # <--- AJOUT SÉCURITÉ NETTOYAGE
+import atexit 
 import logging
 import requests
 import pandas
 import xlsxwriter
 import lxml
-from modules import geotoolbox, orthohisto, feedback, about, version, core 
+import webbrowser # Nécessaire pour ouvrir le lien de téléchargement
+from modules import geotoolbox, orthohisto, feedback, about, version, core, updater 
 
 # ==========================================
 # 1. CONFIGURATION
@@ -212,7 +213,16 @@ def generate_html_content():
                 setTimeout(() => {{
                     document.getElementById('splash-screen').style.display = 'none';
                     document.getElementById('app').classList.add('visible');
-                    window.dispatchEvent(new Event('resize')); 
+                    window.dispatchEvent(new Event('resize'));
+                    
+                    // --- AUTO-UPDATE CHECK (DÉMARRAGE DIFFÉRÉ) ---
+                    setTimeout(() => {{
+                        if (typeof pywebview !== 'undefined' && pywebview.api) {{
+                            pywebview.api.check_updates_ui();
+                        }}
+                    }}, 1500);
+                    // --------------------------------------------
+
                 }}, 800);
             }}
         }}, 30);
@@ -272,6 +282,26 @@ class BurgeaplyApi:
 
     def run_send_feedback(self, category, message, trigram, contact):
         return feedback.send_discord_feedback(category, message, trigram, contact)
+
+    # --- MÉTHODE AJOUTÉE POUR L'UPDATER ---
+    def check_updates_ui(self):
+        """Vérifie les mises à jour et notifie l'utilisateur via popup"""
+        try:
+            update_info = updater.check_for_updates()
+            if update_info and update_info['has_update']:
+                w = webview.active_window()
+                if w:
+                    msg = (f"Une nouvelle version v{update_info['remote']} est disponible !\n\n"
+                           f"Nouveautés :\n{update_info['message']}\n\n"
+                           "Voulez-vous la télécharger maintenant ?")
+                    
+                    # Dialogue natif Windows
+                    choice = w.create_confirmation_dialog("Mise à jour disponible", msg)
+                    
+                    if choice:
+                        webbrowser.open(update_info['url'])
+        except Exception as e:
+            logging.error(f"Erreur lors de la vérification de mise à jour: {e}")
 
 if __name__ == '__main__':
     # Initialisation Core (Logs + Config)

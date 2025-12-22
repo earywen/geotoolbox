@@ -1,12 +1,19 @@
 # modules/version.py
 
 # --- INFO ACTUELLE ---
-CURRENT_VERSION = "1.1.0"  # Passage en 1.1.0 suite aux améliorations majeures
+CURRENT_VERSION = "1.1.1"  # Passage en 1.1.1 (Hotfix)
 RELEASE_DATE = "22 Décembre 2025"
 
 # --- HISTORIQUE (Le plus récent en haut) ---
 CHANGELOG = [
-    # --- DÉBUT DU NOUVEAU BLOC ---
+    {
+        "version": "1.1.1",
+        "date": "22 Décembre 2025",
+        "type": "patch", 
+        "changes": [
+            "🐛 Correction critique : Les fichiers téléchargés (Chronologie) sont désormais sauvegardés à côté de l'application et non dans un dossier temporaire caché."
+        ]
+    },
     {
         "version": "1.1.0",
         "date": "22 Décembre 2025",
@@ -19,8 +26,6 @@ CHANGELOG = [
             "🐛 Correction : Déblocage de la barre de progression durant l'export"
         ]
     },
-    # --- FIN DU NOUVEAU BLOC ---
-
     {
         "version": "1.0.1",
         "date": "22 Décembre 2025",
@@ -30,7 +35,6 @@ CHANGELOG = [
             "🔧 Optimisation du chargement des modules"
         ]
     },
-    
     {
         "version": "1.0.0",
         "date": "21 Décembre 2025",
