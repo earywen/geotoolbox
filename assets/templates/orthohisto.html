@@ -1,0 +1,111 @@
+<div id="ortho-container" style="display:flex; height:100%;">
+    <div style="width: 340px; background: #1e293b; color: #f1f5f9; display:flex; flex-direction:column; border-right: 1px solid #334155; padding:20px;">
+        <h2>⏳ Chronologie</h2>
+
+<p style="font-size:12px; color:#94a3b8; margin-bottom:10px; line-height: 1.5;">
+    Reconstituez l'évolution historique de votre site de <strong>1920 à aujourd'hui</strong>.
+</p>
+<ul style="font-size:11px; color:#94a3b8; padding-left:15px; margin-top:0; margin-bottom:20px; line-height: 1.6;">
+    <li><strong>Avant 1950 :</strong> Recherche de missions aériennes (clichés bruts).</li>
+    <li><strong>Après 1950 :</strong> Extraction des mosaïques IGN assemblées.</li>
+</ul>
+<div class="section-title">1. CIBLE</div>
+        <div class="input-container">
+            <label>Centre :</label>
+            <input type="text" id="orthoCoords" class="folder-input" readonly placeholder="Cliquez sur la carte..." style="color:#fb923c;">
+        </div>
+        
+        <div class="slider-container" style="margin-bottom:15px;">
+            <label>Zone de recherche : <span id="orthoRadiusDisplay" style="color:#38bdf8; font-weight:bold;">500 m</span></label>
+            <input type="range" id="orthoRadiusInput" min="50" max="1000" step="50" value="500" oninput="orthoUpdateRadius()">
+        </div>
+
+        <div class="section-title">2. STOCKAGE</div>
+        <div class="input-container">
+            <label>Dossier :</label>
+            <div class="input-group">
+                <input type="text" id="orthoTargetPath" class="folder-input" readonly placeholder="Par défaut...">
+                <button class="btn-browse" onclick="orthoBrowseFolder()">📂</button>
+            </div>
+        </div>
+
+        <div style="margin-top:auto;">
+            <button class="btn btn-export" onclick="startFullExtraction()" style="width:100%; height:50px; font-size:14px; background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);">
+                🚀 TOUT TÉLÉCHARGER
+            </button>
+            <div id="orthoLogs" class="logs-box">En attente...</div>
+        </div>
+    </div>
+    <div id="orthoMap" style="flex:1; background:#cbd5e1;"></div>
+</div>
+
+<style>
+    .logs-box { margin-top:10px; font-size:11px; font-family:monospace; color:#cbd5e1; height:200px; overflow-y:auto; background:#0f172a; padding:5px; border-radius:4px; border:1px solid #334155; }
+</style>
+
+<script>
+var oMap, oMarker, oSquare, selectedLat=0, selectedLon=0;
+
+function init_orthohisto() {
+    if(oMap) { setTimeout(() => oMap.invalidateSize(), 200); return; }
+    oMap = L.map('orthoMap', { zoomControl: false }).setView([46.6, 1.8], 6);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png').addTo(oMap);
+    L.control.zoom({ position: 'topright' }).addTo(oMap);
+    L.Control.geocoder({ geocoder: L.Control.Geocoder.photon({ geocodingQueryParams: { lang: 'fr' } }), defaultMarkGeocode: false })
+     .on('markgeocode', function(e) { orthoUpdateSelection(e.geocode.center); oMap.setView(e.geocode.center, 15); }).addTo(oMap);
+    oMap.on('click', function(e) { orthoUpdateSelection(e.latlng); });
+    setTimeout(() => oMap.invalidateSize(), 200);
+}
+
+function orthoUpdateSelection(l) { 
+    selectedLat=l.lat; selectedLon=l.lng; 
+    document.getElementById('orthoCoords').value=selectedLat.toFixed(5)+", "+selectedLon.toFixed(5);
+    if(oMarker) oMap.removeLayer(oMarker); oMarker=L.marker(l).addTo(oMap); 
+    orthoUpdateVisuals(); 
+    oMap.panTo(l);
+}
+
+function orthoUpdateVisuals() { 
+    if(!selectedLat) return; 
+    if(oSquare) oMap.removeLayer(oSquare);
+    var r=parseInt(document.getElementById('orthoRadiusInput').value); 
+    var d=r/111000; 
+    var b=[[selectedLat-d, selectedLon-d], [selectedLat+d, selectedLon+d]]; 
+    oSquare=L.rectangle(b, {color:"#10b981", weight:2, fillOpacity:0.1}).addTo(oMap); 
+}
+
+function orthoUpdateRadius() { 
+    document.getElementById('orthoRadiusDisplay').innerText=document.getElementById('orthoRadiusInput').value+" m"; 
+    orthoUpdateVisuals(); 
+}
+
+function orthoBrowseFolder() { pywebview.api.select_directory().then(p => { if(p) document.getElementById('orthoTargetPath').value=p; }); }
+
+function startFullExtraction() {
+    if(!selectedLat) return alert("Sélectionnez une zone sur la carte.");
+    var r=document.getElementById('orthoRadiusInput').value; 
+    var p=document.getElementById('orthoTargetPath').value; 
+    var l=document.getElementById('orthoLogs');
+    
+    showLoader("Extraction Globale");
+    l.innerHTML="Démarrage de l'analyse...<br>";
+    
+    pywebview.api.run_full_process(selectedLat, selectedLon, r, p).then(res => {
+        hideLoader();
+        if(res.folder) {
+            l.innerHTML = "<b>TERMINÉ !</b><br>";
+            l.innerHTML += "Dossier : " + res.folder + "<br>----------------<br>";
+            res.summary.forEach(i => {
+                let col = "#fb923c"; 
+                if(i.status.includes("OK") || i.status.includes("Mission")) col = "#4ade80"; 
+                if(i.status.includes("404")) col = "#f87171"; 
+                l.innerHTML += `<span style='color:${col}'>[${i.annee}] ${i.status}</span><br>`;
+            });
+            alert("Extraction terminée !\\n" + res.summary.length + " fichiers récupérés.");
+        }
+    }).catch(err => {
+        hideLoader();
+        l.innerHTML += "<span style='color:red'>Erreur critique : " + err + "</span>";
+    });
+}
+</script>

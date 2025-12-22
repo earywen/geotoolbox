@@ -1,0 +1,109 @@
+<style>
+    .modern-form { display: flex; flex-direction: column; gap: 15px; }
+    .form-row { display: flex; gap: 15px; } 
+    
+    .form-group label {
+        display: block; margin-bottom: 8px; font-size: 12px; font-weight: 600;
+        color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px;
+    }
+
+    .modern-input {
+        width: 100%; padding: 12px 15px; background-color: #0f172a;
+        border: 1px solid #334155; border-radius: 8px; color: #f1f5f9;
+        font-family: 'Segoe UI', sans-serif; font-size: 14px;
+        transition: all 0.3s ease; box-sizing: border-box;
+    }
+    .modern-input:hover { border-color: #475569; }
+    .modern-input:focus { border-color: #38bdf8; outline: none; box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.15); }
+
+    select.modern-input {
+        appearance: none; -webkit-appearance: none; cursor: pointer;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+        background-repeat: no-repeat; background-position: right 15px center; background-size: 16px;
+    }
+
+    textarea.modern-input { resize: vertical; min-height: 120px; line-height: 1.5; }
+
+    .btn-submit {
+        width: 100%; padding: 14px; margin-top: 10px;
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 14px;
+        cursor: pointer; transition: transform 0.1s, box-shadow 0.2s;
+    }
+    .btn-submit:hover { box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3); transform: translateY(-1px); }
+    .btn-submit:active { transform: translateY(1px); }
+</style>
+
+<div style="display:flex; justify-content:center; align-items:center; height:100%; width:100%;">
+    <div style="width: 550px; background: #1e293b; padding: 40px; border-radius: 16px; box-shadow: 0 20px 50px rgba(0,0,0,0.3); color: #f1f5f9; border: 1px solid #334155;">
+        
+        <div style="text-align:center; margin-bottom:30px;">
+            <h2 style="color:#38bdf8; margin:0; font-size:24px;">📢 Feedback</h2>
+            <p style="color:#94a3b8; font-size:14px; margin-top:5px;">
+                Une idée ? Un bug ? Envoyez-le directement sur Discord.
+            </p>
+        </div>
+
+        <div class="modern-form">
+            
+            <div class="form-row">
+                <div class="form-group" style="flex: 1;">
+                    <label>Votre Trigramme</label>
+                    <input type="text" id="fb_trigram" class="modern-input" placeholder="Ex: LBR" maxlength="5" style="text-transform:uppercase;">
+                </div>
+                <div class="form-group" style="flex: 2;">
+                    <label>Type de retour</label>
+                    <select id="fb_category" class="modern-input">
+                        <option value="idea">💡 J'ai une idée / Suggestion</option>
+                        <option value="bug">🪲 J'ai trouvé un bug</option>
+                        <option value="other">✉️ Autre message</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Votre message</label>
+                <textarea id="fb_message" class="modern-input" placeholder="Décrivez votre idée ou le problème en détails..."></textarea>
+            </div>
+
+            <button onclick="sendFeedback()" class="btn-submit">
+                ENVOYER LE MESSAGE
+            </button>
+
+        </div>
+
+        <div id="fb_status" style="margin-top:20px; text-align:center; font-size:13px; min-height:20px; font-weight:500;"></div>
+
+    </div>
+</div>
+
+<script>
+function sendFeedback() {
+    var trigram = document.getElementById('fb_trigram').value.trim();
+    var cat = document.getElementById('fb_category').value;
+    var msg = document.getElementById('fb_message').value;
+    var status = document.getElementById('fb_status');
+
+    // Validation simple
+    if(trigram.length < 2) {
+        status.innerHTML = "<span style='color:#f87171'>⚠️ Merci de renseigner votre Trigramme.</span>";
+        return;
+    }
+    if(msg.length < 5) {
+        status.innerHTML = "<span style='color:#f87171'>⚠️ Le message est trop court !</span>";
+        return;
+    }
+
+    status.innerHTML = "<span style='color:#94a3b8'>🚀 Envoi en cours...</span>";
+    
+    // Appel Python (On passe une chaîne vide pour le contact car app.py attend 4 arguments)
+    pywebview.api.run_send_feedback(cat, msg, trigram, "").then(res => {
+        if(res.success) {
+            status.innerHTML = "<span style='color:#4ade80'>✅ Message envoyé ! Merci.</span>";
+            document.getElementById('fb_message').value = ""; 
+        } else {
+            status.innerHTML = "<span style='color:#f87171'>❌ Erreur : " + res.msg + "</span>";
+        }
+    });
+}
+</script>

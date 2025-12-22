@@ -1,0 +1,20 @@
+# Ignorer les dossiers de compilation
+build/
+dist/
+*.spec
+
+# Ignorer les fichiers temporaires Python
+__pycache__/
+*.pyc
+
+# Ignorer les environnements virtuels (si tu en as créé un DANS le dossier)
+venv/
+env/
+.env
+
+# Ignorer les exports Excel locaux
+Export_*
+Chronologie_*
+
+# Optionnel : Ignorer les logs
+*.log

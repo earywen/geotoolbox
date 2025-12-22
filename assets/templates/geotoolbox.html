@@ -1,0 +1,148 @@
+<div id="geotoolbox-container" style="display: flex; width: 100%; height: 100%;">
+    <div id="toolbox-sidebar" style="width: 350px; background: #1e293b; color: #f1f5f9; display: flex; flex-direction: column; padding: 20px; overflow-y: auto; border-right: 1px solid #334155; flex-shrink: 0;">
+    
+    <h2>GéoToolbox</h2>
+    
+    <p style="font-size:12px; color:#94a3b8; margin-top:5px; margin-bottom:20px; line-height: 1.5;">
+        Cet outil centralise les données environnementales (BASOL, SIS, SUP) et géologiques (BSS).<br>
+        1. Définissez une zone de recherche.<br>
+        2. Visualisez les points sur la carte.<br>
+        3. Exportez les résultats en Excel.
+    </p>
+    <div class="section-title">1. ZONE</div>
+        <div class="slider-container">
+            <label>Rayon : <span id="radiusDisplay">500 m</span></label>
+            <input type="range" id="radiusInput" min="100" max="3000" step="100" value="500" oninput="geo_updateRadius()">
+        </div>
+
+        <div class="section-title">2. EXPORT</div>
+        <div class="input-container">
+            <input type="text" id="targetPath" class="folder-input" readonly placeholder="Chemin...">
+            <button class="btn-browse" onclick="browseFolder()">📂</button>
+            <input type="text" id="folderName" class="folder-input" style="margin-top:5px;" placeholder="Nom dossier">
+        </div>
+
+        <div class="section-title">3. DONNÉES</div>
+        
+        <div class="checkbox-group">
+            {{CHECKBOXES}}
+        </div>
+
+        <div class="btn-group" style="display: flex; gap: 10px; margin-top: 15px;">
+            <button class="btn btn-preview" onclick="geo_startPreview()">👁️ VOIR</button>
+            <button class="btn btn-export" onclick="geo_startExport()">💾 EXPORTER</button>
+        </div>
+
+        <div id="logs-container"><div id="logs">Prêt.</div></div>
+    </div>
+
+    <div id="map" style="flex: 1; height: 100%; background: #cbd5e1;"></div>
+</div>
+
+<script>
+var map, centerMarker, searchCircle, markersLayer;
+
+function init_geotoolbox() {
+    if(map) { setTimeout(() => map.invalidateSize(), 200); return; }
+    
+    // Initialisation Carte
+    map = L.map('map', { zoomControl: false, preferCanvas: true }).setView([46.6, 1.8], 6);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png').addTo(map);
+    L.control.zoom({ position: 'topright' }).addTo(map);
+    
+    markersLayer = L.layerGroup().addTo(map);
+    
+    L.Control.geocoder({ defaultMarkGeocode: false })
+     .on('markgeocode', function(e) { 
+         geo_setSearchCenter(e.geocode.center); 
+         map.setView(e.geocode.center, 15); 
+     }).addTo(map);
+     
+    map.on('click', function(e) { geo_setSearchCenter(e.latlng); });
+    
+    // Force le rafraîchissement de la taille
+    setTimeout(() => map.invalidateSize(), 200);
+}
+
+function geo_setSearchCenter(latlng) {
+    if(centerMarker) map.removeLayer(centerMarker);
+    if(searchCircle) map.removeLayer(searchCircle);
+    markersLayer.clearLayers();
+    centerMarker = L.marker(latlng).addTo(map);
+    geo_drawCircle(latlng);
+    map.panTo(latlng);
+}
+
+function geo_drawCircle(latlng) {
+    var r = parseInt(document.getElementById('radiusInput').value);
+    if(searchCircle) map.removeLayer(searchCircle);
+    searchCircle = L.circle(latlng, { color: '#38bdf8', radius: r }).addTo(map);
+}
+
+function geo_updateRadius() {
+    document.getElementById('radiusDisplay').innerText = document.getElementById('radiusInput').value + " m";
+    if(centerMarker) geo_drawCircle(centerMarker.getLatLng());
+}
+
+function geo_startPreview() {
+    var bbox = geo_getBbox(); if(!bbox) return;
+    var layers = Array.from(document.querySelectorAll('.checkbox-wrapper input:checked')).map(cb => cb.value);
+    document.getElementById('logs').innerHTML = "<em>Démarrage...</em>";
+    showLoader("Analyse...");
+    pywebview.api.run_preview(bbox, layers).then(res => {
+        hideLoader();
+        markersLayer.clearLayers();
+        res.forEach(r => {
+            log("<b>" + r.layer + "</b> : " + r.count, "success");
+            r.items.forEach(p => {
+                try {
+                    if (p.geometry) {
+                        var style = { color: p.color, weight: 2, fillOpacity: 0.2 };
+                        var popupContent = "<b>" + r.layer + "</b><br>" + p.nom;
+                        if(p.details && p.details !== "-" && p.details !== "None") {
+                            popupContent += "<br><span style='color:#3b82f6'>💧 Eau: " + p.details + "</span>";
+                        }
+                        if (p.geometry.type === 'Point') {
+                            var c = p.geometry.coordinates;
+                            if(c && c.length === 2 && c[0] !== 0) {
+                                L.circleMarker([c[1], c[0]], { radius:5, color: p.color, fillOpacity:0.8, weight:1, fillColor: p.color })
+                                 .bindPopup(popupContent).addTo(markersLayer);
+                            }
+                        } else {
+                            L.geoJSON(p.geometry, { style: style }).bindPopup(popupContent).addTo(markersLayer);
+                        }
+                    }
+                } catch(e) { console.log("Err draw:", e); }
+            });
+        });
+    }).catch(e => { hideLoader(); log("ERREUR : " + e, "error"); });
+}
+
+function geo_getBbox() {
+    if(!searchCircle) { alert("Définissez un centre !"); return null; }
+    var b = searchCircle.getBounds();
+    return { min_lat: b.getSouth(), min_lon: b.getWest(), max_lat: b.getNorth(), max_lon: b.getEast() };
+}
+
+function log(msg, type) {
+    var d = document.getElementById('logs');
+    var color = type === 'error' ? '#f87171' : '#4ade80';
+    d.innerHTML += "<div style='color:"+color+"; margin-top:4px;'>"+msg+"</div>";
+    d.scrollTop = d.scrollHeight;
+}
+
+function geo_startExport() {
+    var bbox = geo_getBbox(); if(!bbox) return;
+    var layers = Array.from(document.querySelectorAll('.checkbox-wrapper input:checked')).map(cb => cb.value);
+    var path = document.getElementById('targetPath').value;
+    if(!path && !confirm("Exporter à la racine ?")) return;
+    showLoader("Export...");
+    pywebview.api.run_export(bbox, layers, document.getElementById('folderName').value, path).then(res => {
+        hideLoader(); alert("Terminé !");
+    });
+}
+
+function browseFolder() {
+    pywebview.api.select_directory().then(p => { if(p) document.getElementById('targetPath').value = p; });
+}
+</script>
