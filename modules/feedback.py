@@ -43,7 +43,7 @@ def send_discord_feedback(category, message, trigram, contact_info=""):
         trigram_clean = trigram.upper().strip()
 
         payload = {
-            "username": "Burgeaply Hub",
+            "username": "BURGEAPLY",
             "avatar_url": "https://cdn-icons-png.flaticon.com/512/2921/2921226.png",
             "embeds": [
                 {

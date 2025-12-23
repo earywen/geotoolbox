@@ -1,6 +1,7 @@
 # Ignorer les dossiers de compilation
 build/
 dist/
+ressources/
 *.spec
 
 # Ignorer les fichiers temporaires Python

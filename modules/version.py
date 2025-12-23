@@ -1,11 +1,22 @@
 # modules/version.py
 
 # --- INFO ACTUELLE ---
-CURRENT_VERSION = "1.1.1"  # Passage en 1.1.1 (Hotfix)
-RELEASE_DATE = "22 Décembre 2025"
+CURRENT_VERSION = "2.0.0"  # Refonte UI majeure (v2)
+RELEASE_DATE = "23 Décembre 2025"
 
 # --- HISTORIQUE (Le plus récent en haut) ---
 CHANGELOG = [
+    {
+        "version": "2.0.0",
+        "date": "23 Décembre 2025",
+        "type": "major",
+        "changes": [
+            "🎨 Refonte UI v2 : Interface Glassmorphism complète (Dark Mode, Transparence)",
+            "💅 Style Modernisé : Bento Grid, animations fluides et typographie épurée",
+            "🛠️ Architecture Technique : Séparation HTML/CSS/JS et suppression du CSS inline",
+            "📂 Structure Modulaire : Templates HTML externes pour une meilleure maintenabilité"
+        ]
+    },
     {
         "version": "1.1.1",
         "date": "22 Décembre 2025",

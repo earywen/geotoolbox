@@ -10,6 +10,7 @@ from datetime import datetime
 import pandas as pd
 import json
 import logging
+import base64
 from concurrent.futures import ThreadPoolExecutor
 from modules import core 
 
@@ -65,6 +66,26 @@ LAYERS_CONFIG = {
         "id_field": "bss_id",
         "name_field": "designation",
         "columns_mapping": {"code_bss": "Code", "designation": "Nom", "z_orifice": "Alt"}
+    },
+    "PARCELLE": {
+        "label": "Parcelles (IGN)",
+        "url_key": "ign_wfs_url", 
+        "layer_name": "CADASTRALPARCELS.PARCELLAIRE_EXPRESS:parcelle",
+        "format": "GML2",
+        "color": "#eab308",
+        "type": "polygon",
+        "name_field": "label_parcelle",
+        "columns_mapping": {"numero": "Numéro", "section": "Section", "commune": "Com"}
+    },
+    "EAU": {
+        "label": "Cours d'eau (IGN)",
+        "url_key": "ign_wfs_url",
+        "layer_name": "BDTOPO_V3:cours_d_eau",
+        "format": "GML2",
+        "color": "#0ea5e9",
+        "type": "line",
+        "name_field": "toponyme",
+        "columns_mapping": {"toponyme": "Nom", "nature": "Nature"}
     }
 }
 
@@ -110,10 +131,39 @@ def parse_geometry_hybrid(element):
             if coords is not None and coords.text:
                 pts = parse_gml_coord_string(coords.text, is_poslist=False)
                 if pts: return {"type": "Point", "coordinates": pts[0]}, pts[0][1], pts[0][0]
-            pos = point_tag.find(".//pos")
             if pos is not None and pos.text:
                 pts = parse_gml_coord_string(pos.text, is_poslist=True, dimension_hint=2)
                 if pts: return {"type": "Point", "coordinates": pts[0]}, pts[0][1], pts[0][0]
+
+        # --- AJOUT SUPPORT LIGNES (LineString / Curve) ---
+        lines_tags = element.findall(".//LineString") + element.findall(".//Curve") + element.findall(".//LineStringSegment")
+        if lines_tags:
+            all_line_points = []
+            geojson_lines = []
+            for line in lines_tags:
+                l_pts = []
+                c_tag = line.find(".//coordinates")
+                if c_tag is not None and c_tag.text:
+                    l_pts = parse_gml_coord_string(c_tag.text, is_poslist=False)
+                else:
+                    p_tag = line.find(".//posList")
+                    if p_tag is not None and p_tag.text:
+                         dim = 2
+                         if 'srsDimension="3"' in str(ET.tostring(p_tag)) or len(p_tag.text.split()) % 3 == 0: dim = 3
+                         l_pts = parse_gml_coord_string(p_tag.text, is_poslist=True, dimension_hint=dim)
+                
+                if l_pts:
+                    geojson_lines.append(l_pts)
+                    all_line_points.extend(l_pts)
+
+            if geojson_lines and all_line_points:
+                avg_lon = sum(p[0] for p in all_line_points) / len(all_line_points)
+                avg_lat = sum(p[1] for p in all_line_points) / len(all_line_points)
+                if len(geojson_lines) == 1:
+                    return {"type": "LineString", "coordinates": geojson_lines[0]}, avg_lat, avg_lon
+                else:
+                    return {"type": "MultiLineString", "coordinates": geojson_lines}, avg_lat, avg_lon
+        # -----------------------------------------------
 
         polys_tags = element.findall(".//Polygon") + element.findall(".//PolygonPatch")
         all_polygons_geojson = [] 
@@ -167,7 +217,13 @@ def parse_gml_response(xml_text):
             props = {}
             geojson_geom, lat_center, lon_center = parse_geometry_hybrid(obj)
             for child in obj:
-                tag_clean = child.tag.lower().strip()
+                # Nettoyage des namespaces {http://...}Tag
+                tag_raw = child.tag
+                if '}' in tag_raw:
+                    tag_raw = tag_raw.split('}', 1)[1]
+                
+                tag_clean = tag_raw.lower().strip()
+                
                 if "geometry" not in tag_clean and "boundedby" not in tag_clean:
                     if child.text: props[tag_clean] = child.text.strip()
             if geojson_geom:
@@ -176,6 +232,14 @@ def parse_gml_response(xml_text):
                 props['LONGITUDE_APPROX'] = lon_center
                 if "code_bss" in props: props["bss_id"] = props["code_bss"]
                 if "code_ssp" in props: props["id"] = props["code_ssp"]
+                
+                # --- FORMATAGE SPÉCIFIQUE PARCELLES ---
+                if "section" in props and "numero" in props:
+                    lbl = f"Section {props['section']} n°{props['numero']}"
+                    if "contenance" in props:
+                        lbl += f" ({props['contenance']} m²)"
+                    props["label_parcelle"] = lbl
+
                 rows.append(props)
     except Exception as e: logging.error(f"Erreur XML: {e}")
     return rows
@@ -221,8 +285,22 @@ def fetch_features(layer_key, bbox, mode='preview'):
 
     min_lon, min_lat = max(bbox['min_lon'], -180), max(bbox['min_lat'], -90)
     max_lon, max_lat = min(bbox['max_lon'], 180), min(bbox['max_lat'], 90)
-    params = {"service": "WFS", "version": "1.0.0", "request": "GetFeature", "typeName": config["layer_name"], "bbox": f"{min_lon},{min_lat},{max_lon},{max_lat}", "srsName": "EPSG:4326"}
     
+    # Par défaut WFS 1.0.0 (Lon,Lat)
+    params = {
+        "service": "WFS", 
+        "version": "1.0.0", 
+        "request": "GetFeature", 
+        "typeName": config["layer_name"], 
+        "bbox": f"{min_lon},{min_lat},{max_lon},{max_lat}", 
+        "srsName": "EPSG:4326"
+    }
+    
+    # SPÉCIFIQUE IGN : WFS 2.0.0 + Axis Order Lat,Lon pour EPSG:4326
+    if config.get('url_key') == 'ign_wfs_url':
+        params['version'] = "2.0.0"
+        params['bbox'] = f"{min_lat},{min_lon},{max_lat},{max_lon}"
+
     rows = []
     session = core.get_session()
 
@@ -501,7 +579,9 @@ def run_export_logic(bbox, layers_list, folder_name, base_path_ui):
             msg_calc = f"Calculs géométriques {config['label']} ({len(rows)} objets)..."
             if window: window.evaluate_js(f"updateLoader({progress_start + 5}, {json.dumps(msg_calc)})")
             
-        rows = calculate_geometrics(rows, bbox, slope_azimut, z_center)
+        # SKIP OPTIMIZATION: On ne calcule pas les positions pour les parcelles (Trop lourd)
+        if layer_key != "PARCELLE":
+             rows = calculate_geometrics(rows, bbox, slope_azimut, z_center)
         
         # UI : Génération Excel
         if window: window.evaluate_js(f"updateLoader({progress_start + 8}, {json.dumps('Génération Excel...')})")
@@ -524,7 +604,17 @@ def run_export_logic(bbox, layers_list, folder_name, base_path_ui):
                 "code_postal": "Code Postal",
                 "nom_commune": "Commune",
                 "geo_dist_dir": "Distance / Position",
-                "hydro_context": "Amont / Aval (Topo)"
+                "hydro_context": "Amont / Aval (Topo)",
+                # --- NOUVEAUX CHAMPS IGN ---
+                "numero": "Numéro Parcelle",
+                "section": "Section",
+                "nom_officiel": "Commune (Admin)",
+                "usage_1": "Usage Bâtiment",
+                "hauteur": "Hauteur (m)",
+                "nature": "Nature",
+                "toponyme": "Toponyme",
+                "code_insee": "INSEE",
+                "population": "Population"
             }
             df.rename(columns=rename_map, inplace=True)
 
@@ -532,11 +622,16 @@ def run_export_logic(bbox, layers_list, folder_name, base_path_ui):
                 'nom_inventaire', 'code_inventaire', 'code_departement', 'nom_departement', 
                 'code_region', 'nom_region', 'nature_localisation', 'x_wgs84', 'y_wgs84', 
                 'code_siret', 'geometry', 'LATITUDE_APPROX', 'LONGITUDE_APPROX', 'boundedBy', 'id',
-                'activite', 'type_activite', 'code_insee', 'position_relative'
+                'activite', 'type_activite', 'position_relative'
             ]
             df = df.drop(columns=[c for c in cols_to_exclude if c in df.columns], errors='ignore')
             
-            priority_cols = ["Référence", "Etablissement / Adresse", "Adresse", "Code Postal", "Commune", "Etat d'occupation du site", "Activité", "Distance / Position", "Amont / Aval (Topo)"]
+            priority_cols = [
+                "Référence", "Etablissement / Adresse", "Adresse", "Code Postal", "Commune", 
+                "Etat d'occupation du site", "Activité", "Distance / Position", "Amont / Aval (Topo)",
+                # IGN Priorités
+                "Numéro Parcelle", "Section", "Commune (Admin)", "Usage Bâtiment", "Hauteur (m)", "Toponyme"
+            ]
             existing_priority = [c for c in priority_cols if c in df.columns]
             other_cols = [c for c in df.columns if c not in existing_priority]
             df = df[existing_priority + other_cols]
@@ -595,9 +690,32 @@ def run_export_logic(bbox, layers_list, folder_name, base_path_ui):
     # --- FIN : 100% ---
     if window: 
         window.evaluate_js("updateLoader(100, 'Export terminé !')")
-        time.sleep(0.5) # Petite pause pour laisser l'utilisateur voir le 100%
+        time.sleep(0.5)
         
     return {"folder": path, "summary": summary}
+
+def save_map_image(base64_str, folder_path):
+    try:
+        if "," in base64_str:
+            base64_str = base64_str.split(",")[1]
+        
+        img_data = base64.b64decode(base64_str)
+        
+        # Path
+        if folder_path and os.path.isdir(folder_path): base = folder_path
+        elif getattr(sys, 'frozen', False): base = os.path.dirname(sys.executable)
+        else: base = os.path.dirname(sys.path[0]) 
+        
+        fname = f"Carte_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg"
+        full_path = os.path.join(base, fname)
+        
+        with open(full_path, "wb") as f:
+            f.write(img_data)
+            
+        return full_path
+    except Exception as e:
+        logging.error(f"Image Save Error: {e}")
+        return None
 
 def get_ui_content():
     checkboxes_html = ""

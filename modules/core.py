@@ -1,6 +1,7 @@
 import sys
 import os
 import json
+import base64
 import logging
 import requests
 import urllib.request
@@ -117,3 +118,17 @@ def load_template(filename):
     except Exception as e:
         logging.error(f"Erreur lecture template {filename}: {e}")
         return f"Erreur lecture: {e}"
+
+def get_logo_b64():
+    """Récupère le logo en base64 de manière centralisée"""
+    try:
+        path = os.path.join(get_base_path(), 'assets', 'logo.png')
+        if not os.path.exists(path): return ""
+        # Sécurité taille image
+        if os.path.getsize(path) > 1_000_000: return "" 
+        with open(path, "rb") as f:
+            encoded = base64.b64encode(f.read()).decode('utf-8')
+            return f"data:image/png;base64,{encoded}"
+    except Exception as e:
+        logging.error(f"Erreur chargement logo: {e}")
+        return ""

@@ -1,148 +1,444 @@
-<div id="geotoolbox-container" style="display: flex; width: 100%; height: 100%;">
-    <div id="toolbox-sidebar" style="width: 350px; background: #1e293b; color: #f1f5f9; display: flex; flex-direction: column; padding: 20px; overflow-y: auto; border-right: 1px solid #334155; flex-shrink: 0;">
-    
-    <h2>GéoToolbox</h2>
-    
-    <p style="font-size:12px; color:#94a3b8; margin-top:5px; margin-bottom:20px; line-height: 1.5;">
-        Cet outil centralise les données environnementales (BASOL, SIS, SUP) et géologiques (BSS).<br>
-        1. Définissez une zone de recherche.<br>
-        2. Visualisez les points sur la carte.<br>
-        3. Exportez les résultats en Excel.
-    </p>
-    <div class="section-title">1. ZONE</div>
-        <div class="slider-container">
-            <label>Rayon : <span id="radiusDisplay">500 m</span></label>
-            <input type="range" id="radiusInput" min="100" max="3000" step="100" value="500" oninput="geo_updateRadius()">
-        </div>
+<style>
+    /* LOCAL STYLES FOR GEOTOOLBOX */
+    #geotoolbox-container {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        background: #e2e8f0;
+    }
 
-        <div class="section-title">2. EXPORT</div>
-        <div class="input-container">
-            <input type="text" id="targetPath" class="folder-input" readonly placeholder="Chemin...">
-            <button class="btn-browse" onclick="browseFolder()">📂</button>
-            <input type="text" id="folderName" class="folder-input" style="margin-top:5px;" placeholder="Nom dossier">
-        </div>
+    #map-container-absolute {
+        position: absolute;
+        inset: 0;
+        z-index: 0;
+    }
 
-        <div class="section-title">3. DONNÉES</div>
-        
-        <div class="checkbox-group">
-            {{CHECKBOXES}}
-        </div>
+    #gt-sidebar {
+        position: absolute;
+        top: 20px;
+        bottom: 20px;
+        left: 100px;
+        width: 380px;
+        z-index: 1000;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
 
-        <div class="btn-group" style="display: flex; gap: 10px; margin-top: 15px;">
-            <button class="btn btn-preview" onclick="geo_startPreview()">👁️ VOIR</button>
-            <button class="btn btn-export" onclick="geo_startExport()">💾 EXPORTER</button>
-        </div>
+    #gt-scroll-area {
+        overflow-y: auto;
+        padding: 25px;
+        height: 100%;
+    }
 
-        <div id="logs-container"><div id="logs">Prêt.</div></div>
+    .checkbox-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 8px;
+        padding: 8px 12px;
+        background: rgba(30, 41, 59, 0.4);
+        border-radius: 8px;
+        transition: background 0.2s;
+    }
+
+    .checkbox-wrapper:hover {
+        background: rgba(30, 41, 59, 1);
+    }
+
+    input[type="checkbox"] {
+        accent-color: var(--accent);
+        width: 16px;
+        height: 16px;
+        cursor: pointer;
+    }
+
+    label {
+        cursor: pointer;
+        font-weight: 500;
+        font-size: 13px;
+    }
+
+    .results-panel {
+        margin-top: 20px;
+        padding: 15px;
+        border-radius: 12px;
+        background: rgba(15, 23, 42, 0.7);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        max-height: 200px;
+        overflow-y: auto;
+    }
+
+    .res-item {
+        font-size: 11px;
+        margin-bottom: 4px;
+        padding-bottom: 4px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        font-family: monospace;
+    }
+
+    .tool-section {
+        margin-bottom: 25px;
+    }
+
+    .section-title {
+        margin-top: 0 !important;
+        margin-bottom: 12px !important;
+    }
+
+    /* OVERLAYS EXPORT */
+    .map-overlay-north {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        width: 60px;
+        height: 60px;
+        z-index: 9999;
+        pointer-events: none;
+        filter: drop-shadow(0px 0px 4px white);
+    }
+
+    .map-overlay-legend {
+        position: absolute;
+        bottom: 20px;
+        right: 20px;
+        background: rgba(255, 255, 255, 0.95);
+        padding: 15px;
+        border-radius: 4px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+        z-index: 9999;
+        font-size: 14px;
+        font-family: 'Segoe UI', sans-serif;
+        min-width: 200px;
+        border: 1px solid #cbd5e1;
+        color: black;
+    }
+
+    .legend-item {
+        display: flex;
+        align-items: center;
+        margin-bottom: 5px;
+    }
+
+    /* SHADOW CONTAINER (Hidden) */
+    #shadow-export-container {
+        visibility: hidden;
+        position: fixed;
+        top: -10000px;
+        left: -10000px;
+        z-index: -1;
+    }
+</style>
+
+<div id="geotoolbox-container">
+    <!-- MAP -->
+    <div id="map-container-absolute">
+        <div id="map" style="width: 100%; height: 100%;"></div>
+
+        <!-- GABARIT OVERLAY (Visual Only on Main Map) -->
+        <div id="gabarit-overlay"
+            style="display:none; position:absolute; top:0; left:0; width:100%; height:100%; z-index:9000; pointer-events:none;">
+            <div id="gabarit-frame"
+                style="border: 2px dashed #f59e0b; box-shadow: 0 0 0 9999px rgba(0,0,0,0.5); width:50%; height:50%; margin:auto; position:relative;">
+                <div
+                    style="position:absolute; top:-25px; left:0; color:#f59e0b; font-weight:bold; font-size:12px; background:rgba(0,0,0,0.7); padding:2px 5px;">
+                    Zone Export (A3)</div>
+            </div>
+        </div>
     </div>
 
-    <div id="map" style="flex: 1; height: 100%; background: #cbd5e1;"></div>
+    <!-- SIDEBAR -->
+    <div id="gt-sidebar" class="glass-panel slide-in-panel" style="border-radius: 20px;">
+        <div id="gt-scroll-area">
+            <h2 style="margin-bottom: 5px;">GéoToolbox</h2>
+            <p class="text-muted" style="font-size: 12px; margin-bottom: 25px;">Extraction de données environnementales.
+            </p>
+
+            <div class="tool-section">
+                <div class="section-title">1. ZONE D'ÉTUDE</div>
+                <div class="card" style="padding: 15px;">
+                    <div class="input-group" style="margin-bottom:10px;">
+                        <span style="font-size:20px;">📍</span>
+                        <input type="text" id="siteCoords" class="input-pill" readonly
+                            placeholder="Cliquez sur la carte..."
+                            style="text-align:center; color:var(--accent); font-weight:bold;">
+                    </div>
+                    <div
+                        style="display:flex; justify-content:space-between; margin-bottom:5px; font-size:12px; font-weight:600;">
+                        <label>Rayon</label> <span id="radiusDisplay" class="text-accent">500 m</span>
+                    </div>
+                    <input type="range" id="radiusInput" min="100" max="2000" step="100" value="500"
+                        style="width:100%; accent-color: var(--accent);" oninput="updateRadius()">
+                </div>
+            </div>
+
+            <div class="tool-section">
+                <div class="section-title">2. COUCHES</div>
+                <div id="layers-list"
+                    style="max-height: 250px; overflow-y:auto; padding-right:5px; margin-bottom:10px;">
+                    {{CHECKBOXES}}
+                </div>
+            </div>
+
+            <div class="tool-section">
+                <div class="section-title">3. EXPORT</div>
+                <div class="input-group">
+                    <input type="text" id="targetPath" class="input-pill" readonly placeholder="Dossier cible...">
+                    <button class="btn-icon-input" onclick="browseFolder()">📂</button>
+                </div>
+
+                <!-- CARTE JPG AVANCÉE -->
+                <div class="card" style="padding: 15px; margin-bottom: 10px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 10px;">
+                        <div style="font-weight:600; font-size:12px; color:var(--text-muted);">CAPTURE HD</div>
+                        <div style="display:flex; align-items:center; gap:8px;">
+                            <input type="checkbox" id="showGabarit" onchange="toggleGabarit()">
+                            <label for="showGabarit" style="font-size:11px; cursor:pointer;">Gabarit</label>
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <select id="exportFormat" class="input-pill" style="padding:0 15px; height:42px;"
+                            onchange="updateGabarit()">
+                            <option value="format_land">Paysage (A3)</option>
+                            <option value="format_port">Portrait (A3)</option>
+                        </select>
+                        <button class="btn-icon-input" onclick="geo_exportMap()">📸</button>
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr; gap: 10px;">
+                    <button class="btn-secondary" onclick="runProcess('preview')">👁️ Aperçu Données</button>
+                    <button class="btn-glow" style="width:100%" onclick="runProcess('export')">🚀 EXPORTER
+                        DONNÉES</button>
+                </div>
+            </div>
+            <div id="status-log" class="results-panel" style="display:none;"></div>
+        </div>
+    </div>
 </div>
 
+<!-- CONTAINER CACHÉ POUR EXPORT -->
+<div id="shadow-export-container"></div>
+
 <script>
-var map, centerMarker, searchCircle, markersLayer;
+    var map;
+    var currentBounds = null;
+    var geoJsonLayer = null;
+    var currentPreviewData = null; // Store Data for Export
+    var siteMarker = null, siteCircle = null;
+    var selectedLat = 0, selectedLon = 0;
 
-function init_geotoolbox() {
-    if(map) { setTimeout(() => map.invalidateSize(), 200); return; }
-    
-    // Initialisation Carte
-    map = L.map('map', { zoomControl: false, preferCanvas: true }).setView([46.6, 1.8], 6);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png').addTo(map);
-    L.control.zoom({ position: 'topright' }).addTo(map);
-    
-    markersLayer = L.layerGroup().addTo(map);
-    
-    L.Control.geocoder({ defaultMarkGeocode: false })
-     .on('markgeocode', function(e) { 
-         geo_setSearchCenter(e.geocode.center); 
-         map.setView(e.geocode.center, 15); 
-     }).addTo(map);
-     
-    map.on('click', function(e) { geo_setSearchCenter(e.latlng); });
-    
-    // Force le rafraîchissement de la taille
-    setTimeout(() => map.invalidateSize(), 200);
-}
+    var EXPORT_FORMATS = { 'format_land': { w: 1587, h: 1123 }, 'format_port': { w: 1123, h: 1587 } };
 
-function geo_setSearchCenter(latlng) {
-    if(centerMarker) map.removeLayer(centerMarker);
-    if(searchCircle) map.removeLayer(searchCircle);
-    markersLayer.clearLayers();
-    centerMarker = L.marker(latlng).addTo(map);
-    geo_drawCircle(latlng);
-    map.panTo(latlng);
-}
-
-function geo_drawCircle(latlng) {
-    var r = parseInt(document.getElementById('radiusInput').value);
-    if(searchCircle) map.removeLayer(searchCircle);
-    searchCircle = L.circle(latlng, { color: '#38bdf8', radius: r }).addTo(map);
-}
-
-function geo_updateRadius() {
-    document.getElementById('radiusDisplay').innerText = document.getElementById('radiusInput').value + " m";
-    if(centerMarker) geo_drawCircle(centerMarker.getLatLng());
-}
-
-function geo_startPreview() {
-    var bbox = geo_getBbox(); if(!bbox) return;
-    var layers = Array.from(document.querySelectorAll('.checkbox-wrapper input:checked')).map(cb => cb.value);
-    document.getElementById('logs').innerHTML = "<em>Démarrage...</em>";
-    showLoader("Analyse...");
-    pywebview.api.run_preview(bbox, layers).then(res => {
-        hideLoader();
-        markersLayer.clearLayers();
-        res.forEach(r => {
-            log("<b>" + r.layer + "</b> : " + r.count, "success");
-            r.items.forEach(p => {
-                try {
-                    if (p.geometry) {
-                        var style = { color: p.color, weight: 2, fillOpacity: 0.2 };
-                        var popupContent = "<b>" + r.layer + "</b><br>" + p.nom;
-                        if(p.details && p.details !== "-" && p.details !== "None") {
-                            popupContent += "<br><span style='color:#3b82f6'>💧 Eau: " + p.details + "</span>";
-                        }
-                        if (p.geometry.type === 'Point') {
-                            var c = p.geometry.coordinates;
-                            if(c && c.length === 2 && c[0] !== 0) {
-                                L.circleMarker([c[1], c[0]], { radius:5, color: p.color, fillOpacity:0.8, weight:1, fillColor: p.color })
-                                 .bindPopup(popupContent).addTo(markersLayer);
-                            }
-                        } else {
-                            L.geoJSON(p.geometry, { style: style }).bindPopup(popupContent).addTo(markersLayer);
-                        }
-                    }
-                } catch(e) { console.log("Err draw:", e); }
-            });
+    function init_geotoolbox() {
+        if (map) { setTimeout(() => { map.invalidateSize(); }, 100); ortho_syncFromState(); return; }
+        map = L.map('map', { zoomControl: false, zoomSnap: 0 }).setView([46.603354, 1.888334], 6);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { attribution: '&copy; CARTO', maxZoom: 20 }).addTo(map);
+        L.control.zoom({ position: 'topright' }).addTo(map);
+        L.Control.geocoder({ defaultMarkGeocode: false, position: 'topright' }).on('markgeocode', function (e) { updateSiteSelection(e.geocode.center); }).addTo(map);
+        map.on('click', function (e) { updateSiteSelection(e.latlng); });
+        map.on('moveend', function () {
+            var b = map.getBounds();
+            currentBounds = { min_lat: b.getSouth(), min_lon: b.getWest(), max_lat: b.getNorth(), max_lon: b.getEast() };
+            storeViewport();
         });
-    }).catch(e => { hideLoader(); log("ERREUR : " + e, "error"); });
-}
+        ortho_syncFromState();
+    }
 
-function geo_getBbox() {
-    if(!searchCircle) { alert("Définissez un centre !"); return null; }
-    var b = searchCircle.getBounds();
-    return { min_lat: b.getSouth(), min_lon: b.getWest(), max_lat: b.getNorth(), max_lon: b.getEast() };
-}
+    function ortho_syncFromState() { /* Sync logic if needed */ }
+    function updateSiteSelection(latlng) {
+        selectedLat = latlng.lat; selectedLon = latlng.lng;
+        document.getElementById('siteCoords').value = selectedLat.toFixed(5) + ", " + selectedLon.toFixed(5);
+        if (siteMarker) map.removeLayer(siteMarker); siteMarker = L.marker(latlng).addTo(map);
+        updateRadiusVisuals(); smartPanTo(map, latlng);
+    }
+    function updateRadius() { document.getElementById('radiusDisplay').innerText = document.getElementById('radiusInput').value + " m"; updateRadiusVisuals(); }
+    function updateRadiusVisuals() {
+        if (!selectedLat) return; if (siteCircle) map.removeLayer(siteCircle);
+        var r = parseInt(document.getElementById('radiusInput').value);
+        siteCircle = L.circle([selectedLat, selectedLon], { radius: r, color: '#38bdf8', weight: 2 }).addTo(map);
+    }
+    function storeViewport() { if (map) updateSharedState({ center: map.getCenter(), zoom: map.getZoom() }, null); }
+    function browseFolder() { pywebview.api.select_directory().then(p => { if (p) document.getElementById('targetPath').value = p; }); }
 
-function log(msg, type) {
-    var d = document.getElementById('logs');
-    var color = type === 'error' ? '#f87171' : '#4ade80';
-    d.innerHTML += "<div style='color:"+color+"; margin-top:4px;'>"+msg+"</div>";
-    d.scrollTop = d.scrollHeight;
-}
+    // --- GABARIT & EXPORT MAP LOGIC ---
+    function toggleGabarit() {
+        var show = document.getElementById('showGabarit').checked;
+        document.getElementById('gabarit-overlay').style.display = show ? 'flex' : 'none';
+        if (show) updateGabarit();
+    }
+    function updateGabarit() {
+        var dim = EXPORT_FORMATS[document.getElementById('exportFormat').value];
+        var frame = document.getElementById('gabarit-frame');
+        var containerH = document.getElementById('map-container-absolute').offsetHeight;
+        var containerW = document.getElementById('map-container-absolute').offsetWidth;
+        var SIDEBAR_OFFSET = 500; // Sidebar (380) + Margins + Dock
 
-function geo_startExport() {
-    var bbox = geo_getBbox(); if(!bbox) return;
-    var layers = Array.from(document.querySelectorAll('.checkbox-wrapper input:checked')).map(cb => cb.value);
-    var path = document.getElementById('targetPath').value;
-    if(!path && !confirm("Exporter à la racine ?")) return;
-    showLoader("Export...");
-    pywebview.api.run_export(bbox, layers, document.getElementById('folderName').value, path).then(res => {
-        hideLoader(); alert("Terminé !");
-    });
-}
+        var availableW = containerW - SIDEBAR_OFFSET;
+        if (availableW < 100 || containerW < 900) availableW = containerW; // Fallback mobile/small screen
 
-function browseFolder() {
-    pywebview.api.select_directory().then(p => { if(p) document.getElementById('targetPath').value = p; });
-}
+        var ratio = dim.w / dim.h;
+        var targetH = containerH * 0.75;
+        var targetW = targetH * ratio;
+
+        if (targetW > availableW * 0.9) { targetW = availableW * 0.9; targetH = targetW / ratio; }
+        if (targetH > containerH * 0.9) { targetH = containerH * 0.9; targetW = targetH * ratio; }
+
+        frame.style.width = targetW + 'px'; frame.style.height = targetH + 'px';
+
+        // Positioning in safe area
+        var leftPos = (containerW < 900) ? (containerW - targetW) / 2 : SIDEBAR_OFFSET + ((availableW - targetW) / 2);
+        frame.style.left = leftPos + 'px';
+        frame.style.top = ((containerH - targetH) / 2) + 'px';
+        frame.style.margin = "0";
+    }
+
+    function getGabaritBounds() {
+        var frame = document.getElementById('gabarit-frame');
+        var rect = frame.getBoundingClientRect();
+        var mapRect = document.getElementById('map').getBoundingClientRect();
+        var tl = map.containerPointToLatLng([rect.left - mapRect.left + 2, rect.top - mapRect.top + 2]);
+        var br = map.containerPointToLatLng([rect.right - mapRect.left - 2, rect.bottom - mapRect.top - 2]);
+        return L.latLngBounds(tl, br);
+    }
+
+    // === SHADOW MAP EXPORT V2 (AUTO-FETCH DATA) ===
+    function geo_exportMap() {
+        var folder = document.getElementById('targetPath').value;
+        if (!folder) { showToast('error', "Sélectionnez un dossier d'export !"); return; }
+
+        // 1. Check if we have data to export
+        if (currentPreviewData) {
+            _performShadowExport(currentPreviewData);
+        } else {
+            // Auto-fetch data
+            var b = currentBounds;
+            if (siteCircle) { var cb = siteCircle.getBounds(); b = { min_lat: cb.getSouth(), min_lon: cb.getWest(), max_lat: cb.getNorth(), max_lon: cb.getEast() }; }
+            var l = Array.from(document.querySelectorAll('#layers-list input:checked')).map(i => i.value);
+
+            if (!l.length) { showToast('error', "Aucune couche sélectionnée"); return; }
+
+            showLoader("Récupération des données...");
+            pywebview.api.run_preview(b, l).then(res => {
+                currentPreviewData = res; // Store for future use
+                renderPreview(res); // Might as well show it on main map
+                _performShadowExport(res);
+            }).catch(e => {
+                hideLoader();
+                showToast('error', "Erreur récupération: " + e);
+            });
+        }
+    }
+
+    function _performShadowExport(data) {
+        var folder = document.getElementById('targetPath').value;
+        var showGabarit = document.getElementById('showGabarit').checked;
+        var exportBounds = showGabarit ? getGabaritBounds() : map.getBounds();
+        var dim = EXPORT_FORMATS[document.getElementById('exportFormat').value];
+
+        showLoader("Génération Carte HD...");
+
+        var shadow = document.getElementById('shadow-export-container');
+        shadow.innerHTML = "";
+        shadow.style.width = dim.w + 'px';
+        shadow.style.height = dim.h + 'px';
+        shadow.style.visibility = 'visible';
+
+        var shadowMap = L.map(shadow, {
+            zoomControl: false, attributionControl: false, preferCanvas: true,
+            fadeAnimation: false, zoomAnimation: false
+        });
+
+        // Fit Bounds
+        var padding = L.point(50, 50);
+        shadowMap.setView(exportBounds.getCenter(), shadowMap.getBoundsZoom(exportBounds, false, padding), { animate: false });
+
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { maxZoom: 20 }).addTo(shadowMap);
+
+        // Data Layers
+        if (selectedLat) {
+            L.marker([selectedLat, selectedLon]).addTo(shadowMap);
+            var r = parseInt(document.getElementById('radiusInput').value);
+            L.circle([selectedLat, selectedLon], { radius: r, color: '#38bdf8', weight: 2, fill: false, dashArray: "10, 10" }).addTo(shadowMap);
+        }
+
+        if (data) {
+            var shadowDataLayer = L.layerGroup().addTo(shadowMap);
+            data.forEach(g => g.items.forEach(i => {
+                if (i.geometry) L.geoJSON(i.geometry, {
+                    pointToLayer: (f, l) => L.circleMarker(l, { radius: 6, fillColor: i.color, color: "#fff", weight: 1, fillOpacity: 0.8 }),
+                    style: { color: i.color, weight: 2, opacity: 0.8 }
+                }).addTo(shadowDataLayer);
+            }));
+        }
+
+        // Overlays
+        var northDiv = document.createElement('div'); northDiv.className = 'map-overlay-north';
+        northDiv.innerHTML = '<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="45" fill="white" stroke="black" stroke-width="2"/><path d="M50 10 L65 50 L50 90 L35 50 Z" fill="black"/><text x="50" y="28" font-family="Arial" font-size="20" fill="white" text-anchor="middle" font-weight="bold">N</text></svg>';
+        shadow.appendChild(northDiv);
+
+        var legendDiv = document.createElement('div'); legendDiv.className = 'map-overlay-legend';
+        legendDiv.innerHTML = buildLegendHtml();
+        shadow.appendChild(legendDiv);
+
+        L.control.scale({ imperial: false, position: 'bottomleft' }).addTo(shadowMap);
+
+        setTimeout(() => {
+            html2canvas(shadow, { useCORS: true, allowTaint: true, width: dim.w, height: dim.h, scale: 2, logging: false }).then(canvas => {
+                var dataUrl = canvas.toDataURL("image/jpeg", 0.9);
+                pywebview.api.run_save_map(dataUrl, folder).then(path => {
+                    shadowMap.remove(); shadow.innerHTML = ""; shadow.style.visibility = 'hidden';
+                    hideLoader();
+                    if (path) showToast('success', "Carte sauvegardée !");
+                });
+            }).catch(e => {
+                shadowMap.remove(); shadow.style.visibility = 'hidden'; hideLoader(); showToast('error', "Err: " + e);
+            });
+        }, 1500);
+    }
+
+    function buildLegendHtml() {
+        var html = "<b>Légende</b><br><br>";
+        document.querySelectorAll('.checkbox-wrapper input:checked').forEach(cb => {
+            var lbl = document.querySelector('label[for="' + cb.id + '"]');
+            var color = lbl.style.color; var txt = lbl.innerText;
+            var sym = `<div style="background:${color}; width:20px; height:20px; margin-right:10px; border:1px solid #94a3b8;"></div>`;
+            if (cb.value === 'EAU') sym = `<div style="background:${color}; width:25px; height:4px; margin-right:10px;"></div>`;
+            if (cb.value === 'SSP' || cb.value === 'BSS') sym = `<div style="background:${color}; width:16px; height:16px; border-radius:50%; margin-right:15px; border:1px solid #333;"></div>`;
+            html += `<div class="legend-item">${sym}<div>${txt}</div></div>`;
+        });
+        return html;
+    }
+
+    function runProcess(mode) {
+        let b = currentBounds;
+        if (siteCircle) { var cb = siteCircle.getBounds(); b = { min_lat: cb.getSouth(), min_lon: cb.getWest(), max_lat: cb.getNorth(), max_lon: cb.getEast() }; }
+        var l = Array.from(document.querySelectorAll('#layers-list input:checked')).map(i => i.value);
+        if (!l.length) return showToast('error', "Sélectionnez une couche");
+
+        if (mode === 'preview') {
+            showLoader("Chargement...");
+            pywebview.api.run_preview(b, l).then(res => {
+                hideLoader();
+                currentPreviewData = res; // STORE DATA FOR EXPORT
+                renderPreview(res);
+                showToast('success', "Aperçu OK");
+            });
+        } else {
+            var folder = document.getElementById('targetPath').value;
+            if (!folder) return showToast('error', "Dossier manquant");
+            showLoader("Export Data...");
+            pywebview.api.run_export(b, l, null, folder).then(res => {
+                hideLoader(); showToast('success', "Export Terminé");
+                document.getElementById('status-log').style.display = 'block';
+                document.getElementById('status-log').innerHTML = res.summary.map(s => `<div class="res-item"><span style="color:var(--accent)">${s.layer}</span>: ${s.count}</div>`).join('');
+            });
+        }
+    }
+    function renderPreview(res) {
+        if (geoJsonLayer) map.removeLayer(geoJsonLayer); geoJsonLayer = L.layerGroup().addTo(map);
+        res.forEach(g => g.items.forEach(i => {
+            if (i.geometry) L.geoJSON(i.geometry, { pointToLayer: (f, l) => L.circleMarker(l, { radius: 6, fillColor: i.color, color: "#fff", weight: 1, fillOpacity: 0.8 }), style: { color: i.color, weight: 2, opacity: 0.8 }, onEachFeature: (f, l) => l.bindPopup(`<b>${g.layer}</b><br>${i.nom}`) }).addTo(geoJsonLayer);
+        }));
+    }
 </script>

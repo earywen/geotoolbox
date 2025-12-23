@@ -1,0 +1,161 @@
+<style>
+    .about-container {
+        width: 100%;
+        height: 100%;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .about-content-wrapper {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 40px;
+        color: var(--text-main);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .app-header {
+        text-align: center;
+        margin-bottom: 50px;
+        background: var(--bg-panel);
+        padding: 40px;
+        border-radius: 24px;
+        border: 1px solid var(--glass-border);
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        width: 100%;
+    }
+
+    .app-title {
+        font-size: 32px;
+        font-weight: 800;
+        color: var(--accent);
+        margin: 0;
+    }
+
+    .app-desc {
+        color: var(--text-muted);
+        margin-top: 10px;
+        font-size: 14px;
+        line-height: 1.6;
+    }
+
+    .current-ver {
+        display: inline-block;
+        margin-top: 15px;
+        padding: 5px 15px;
+        background: rgba(56, 189, 248, 0.1);
+        color: var(--accent);
+        border-radius: 20px;
+        font-weight: bold;
+        font-size: 12px;
+        border: 1px solid rgba(56, 189, 248, 0.2);
+    }
+
+    h3 {
+        border-bottom: 2px solid #334155;
+        padding-bottom: 10px;
+        color: #cbd5e1;
+        margin-top: 40px;
+        width: 100%;
+        text-align: left;
+    }
+
+    /* TIMELINE STYLE */
+    .changelog-feed {
+        width: 100%;
+        margin-top: 20px;
+        text-align: left;
+    }
+
+    .version-block {
+        margin-bottom: 25px;
+        padding-left: 20px;
+        border-left: 2px solid #334155;
+        position: relative;
+    }
+
+    .version-block::before {
+        content: '';
+        position: absolute;
+        left: -6px;
+        top: 0;
+        width: 10px;
+        height: 10px;
+        background: #64748b;
+        border-radius: 50%;
+    }
+
+    .version-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 10px;
+    }
+
+    .version-tag {
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: bold;
+        color: white;
+    }
+
+    .version-date {
+        font-size: 12px;
+        color: #64748b;
+        font-style: italic;
+    }
+
+    .version-list {
+        margin: 0;
+        padding-left: 20px;
+        color: #cbd5e1;
+        font-size: 13px;
+    }
+
+    .version-list li {
+        margin-bottom: 4px;
+    }
+
+    .credits {
+        font-size: 12px;
+        color: #64748b;
+        margin-top: 30px;
+        border-top: 1px solid #334155;
+        padding-top: 20px;
+        line-height: 1.6;
+    }
+
+    .credits b {
+        color: #e2e8f0;
+    }
+</style>
+
+<div class="about-container slide-in-panel">
+    <div class="about-content-wrapper">
+
+        <div class="app-header">
+            <img src="{{LOGO_B64}}" style="width: 80px; margin-bottom: 20px; animation: float 6s infinite;">
+            <h1 class="app-title">BURGEAPLY</h1>
+            <div class="current-ver">Version {{VERSION}}</div>
+            <p class="app-desc">
+                Une suite d'outils dédiée à l'ingénierie environnementale.<br>
+                Développé pour simplifier l'accès aux données géographiques et historiques.
+            </p>
+
+            <div class="credits">
+                Développé par <b>Laurent BRIGAUD</b><br>
+                Idée originale de <b>Amine El Mahlali</b><br>
+                <span style="color:var(--accent); font-weight:bold; letter-spacing:0.5px;">Ginger BURGEAP</span>
+            </div>
+        </div>
+
+        <h3>📜 Historique des mises à jour</h3>
+        <div class="changelog-feed">
+            {{CHANGELOG_HTML}}
+        </div>
+
+    </div>
+</div>
