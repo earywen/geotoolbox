@@ -1,5 +1,5 @@
 {
-    "version": "1.1.0",
+    "version": "2.0.0",
     "download_url": "https://github.com/earywen/geotoolbox/releases/latest",
-    "message": "Ajout de l'auto-updater et correction des bugs d'export Excel."
+    "message": "🎨 MAJOR UPDATE 2.0.0 : Refonte complète de l'interface (Glassmorphism), nouveau module About, optimisations techniques et séparation du code."
 }
