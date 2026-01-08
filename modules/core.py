@@ -44,6 +44,23 @@ def init():
     # 1. Chargement Config
     base_internal = get_base_path()
     
+    # Defaults
+    DEFAULTS = {
+        "network": {"verify_ssl": True, "timeout": 30, "user_agent": "BurgeaplyHub/2.0"},
+        "app": {"log_level": "INFO", "log_file": "burgeaply.log", "debug": False},
+        "geotoolbox": {
+            "georisques_url": "https://georisques.gouv.fr/services", 
+            "brgm_wfs_url": "https://geoservices.brgm.fr/geologie",
+            "ign_wfs_url": "https://data.geopf.fr/wfs/ows", 
+            "infoterre_url": "http://infoterre.brgm.fr/fiche/"
+        },
+        "orthohisto": {
+            "wms_url": "https://wxs.ign.fr/ortho/geoportail/r/wms",
+            "wfs_url": "https://wxs.ign.fr/ortho/geoportail/wfs",
+            "download_url": "https://wxs.ign.fr/ortho/geoportail/r/wms"
+        }
+    }
+    
     # Par défaut on cherche config.json à la racine interne
     config_path = os.path.join(base_internal, 'config.json')
     
@@ -53,18 +70,23 @@ def init():
         if os.path.exists(external_config):
             config_path = external_config
 
+    loaded_config = {}
     if os.path.exists(config_path):
         try:
             with open(config_path, 'r', encoding='utf-8') as f:
-                CONFIG = json.load(f)
+                loaded_config = json.load(f)
         except Exception as e:
             print(f"ERREUR CRITIQUE: Impossible de lire config.json : {e}")
     else:
-        print(f"ATTENTION: config.json introuvable à : {config_path}")
-        CONFIG = {
-            "network": {"verify_ssl": True, "timeout": 30},
-            "app": {"log_level": "INFO"}
-        }
+        print(f"INFO: Aucun fichier config.json trouvé à : {config_path}. Utilisation des défauts.")
+        
+    # Merge Loading Config into Defaults (Recursive merge could be better but shallow merge of sections is enough here)
+    CONFIG = DEFAULTS.copy()
+    for section, values in loaded_config.items():
+        if section in CONFIG and isinstance(values, dict):
+            CONFIG[section].update(values)
+        else:
+            CONFIG[section] = values
 
     # 2. Configuration Logs (Toujours à côté de l'exécutable ou du script)
     log_dir = get_user_dir()
@@ -132,3 +154,22 @@ def get_logo_b64():
     except Exception as e:
         logging.error(f"Erreur chargement logo: {e}")
         return ""
+
+def dispatch_event(event_name: str, payload: dict):
+    """
+    Dispatches a CustomEvent to the active pywebview window.
+    This allows the backend to be decoupled from specific JS function names.
+    Js Usage: window.addEventListener('event_name', e => console.log(e.detail))
+    """
+    try:
+        import webview
+        window = webview.active_window()
+        if window:
+            import json
+            # Ensure payload is safe JSON
+            safe_payload = json.dumps(payload)
+            # Create and dispatch the event in the WebView
+            script = f"window.dispatchEvent(new CustomEvent('{event_name}', {{ 'detail': {safe_payload} }}));"
+            window.evaluate_js(script)
+    except Exception as e:
+        logging.error(f"Event Dispatch Error ({event_name}): {e}")

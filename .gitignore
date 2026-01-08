@@ -1,21 +1,32 @@
-# Ignorer les dossiers de compilation
+# Build artifacts
 build/
 dist/
-ressources/
-*.spec
 
-# Ignorer les fichiers temporaires Python
+# Python cache
 __pycache__/
 *.pyc
+*.pyo
 
-# Ignorer les environnements virtuels (si tu en as créé un DANS le dossier)
+# Virtual environments
 venv/
 env/
 .env
 
-# Ignorer les exports Excel locaux
+# Local exports and test outputs
 Export_*
 Chronologie_*
+Rapport_*.xlsx
+test_*.xlsx
 
-# Optionnel : Ignorer les logs
+# Logs
 *.log
+
+# IDE (optional)
+.idea/
+*.code-workspace
+
+# Temporary/test files
+burgeaply-old/
+test_pva.py
+*.spec
+ressources/

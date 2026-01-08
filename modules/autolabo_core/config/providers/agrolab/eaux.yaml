@@ -1,0 +1,78 @@
+# AGROLAB - Configuration Eaux Souterraines
+# ==========================================
+
+matrix: eaux
+
+# Parsing configuration
+parsing:
+  date_row: 0          # Will be detected dynamically (search for "Date")
+  name_row: 2          # Typically date_row + 2
+  data_start_row: 5    # Data starts at row 5 (after headers at row 4)
+  date_format: "%Y%m%d"
+  sample_exclude_keywords:
+    - "nan"
+    - "résultat"
+    - "resultat"  
+    - "lithologie"
+    - "paramètre"
+    - "unité"
+    - "nom du paramètre"
+    - "date d'échantillonnage"
+
+# Column mapping (0-indexed)
+# RAW file: col 0=name, col 2=code, col 5=unit
+# REF file: col 0=code, col 4=name, col 5=unit, col 6-7=regulatory
+columns:
+  code: 0           # Code column index in REF file
+  name: 4           # Full parameter name in REF file
+  unit: 5           # Unit column
+  family: 1         # Family/short name column
+  raw_code_col: 2   # Code column in RAW file (different from REF!)
+
+# Regulatory columns and headers (from REF file row 1)
+regulatory_cols: [6, 7, 8, 9]
+regulatory_headers:
+  - title: "Eau potable\nAnn1 arrêté du 11/01/07 (1)\n(valeur limite, sauf italique : référence, souligné : vigilance)"
+    color: green
+    column: 6
+  - title: "Eau potable\nOMS, 2022\nen italique : provisoire"
+    color: green
+    column: 7
+  - title: "Critères d'évaluation\nArrêté 17/12/2008 (2)\nEn italique : voir (8)"
+    color: yellow
+    column: 8
+  - title: "Eaux brutes\nAnn2 arrêté du 11/01/07"
+    color: orange
+    column: 9
+
+# No key aliases for Eaux
+key_aliases: {}
+
+# No virtual rows for Eaux
+virtual_rows: []
+
+# Formatting
+formatting_mode: eaux
+
+# Legend
+legend:
+  notes:
+    - "n.d. : Non détecté"
+    - "(1) Arrêté modifié par l'arrêté du 04/08/2017 et par l'arrêté du 30/12/2022"
+    - "(2) Arrêté du 17/12/2008 modifié par l'arrêté du 09/10/2023"
+    - "(3) Annexe 1 arrêté du 11/12/22 : Les limites de qualité sont fixées à 50 µg/l pour le chrome et 10 µg/l pour le plomb jusqu'au 31 décembre 2035. Passé cette date, les limites de qualités seront de 25 µg/l pour le chrome et 5 µg/l pour le plomb."
+    - "(4) Annexe 2 arrêté du 11/01/07 : valeur limite pour l'ensemble des Hydrocarbures, fraction C10-C40"
+    - "(5) Annexe 2 arrêté du 11/01/07 : Somme des benzo(a) fluoranthène, benzo(k) fluoranthène, benzo(g,h,i)pérylène, indeno(1,2,3-c,d)pyrène"
+    - "(6) Annexe 2 arrêté du 11/01/07 : somme des benzo(b) fluoranthène, benzo(k) fluoranthène, benzo(g,h,i)pérylène, indeno(1,2,3-c,d)pyrène, fluoranthène, benzo(a)pyrène"
+    - "(7) Annexe 1 arrêté du 11/01/07 : somme des chloroforme, bromoforme, dibromochlorométhane, bromodichlorométhane"
+    - "(8) Arrêté du 17/12/2008 modifié par l'arrêté du 09/10/2023 : Valeur seuil applicable uniquement aux aquifères non influencés pour ce paramètre par le contexte géologique à définir localement pour les nappes dont le contexte géologique influence ce paramètre ou pour les nappes sous influence marine."
+  color_items:
+    - bg_color: "#FBCA98"
+      font_color: black
+      description: "Concentration supérieure à un des seuils eau potable"
+    - bg_color: "#FFFF99"
+      font_color: black
+      description: "Concentration supérieure aux seuils de l'arrêté du 17/12/08"
+    - bg_color: "#C6EFCE"
+      font_color: black
+      description: "Concentration supérieure au seuil eaux brutes"

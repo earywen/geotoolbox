@@ -1,0 +1,9 @@
+# AGROLAB France - Provider Metadata
+# ===================================
+
+id: agrolab
+name: "AGROLAB France"
+key_type: internal_code
+matrices:
+  - eaux
+  - sols

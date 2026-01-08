@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BURGEAPLY</title>
+    <!-- LEAFLET & DEPS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+    <link rel="stylesheet" href="css/style.css">
+</head>
+
+<body>
+
+    <!-- SPLASH SCREEN -->
+    <div id="splash-screen">
+        <img src="logo.png" style="width: 80px; margin-bottom: 20px; animation: float 3s infinite;">
+        <div style="font-weight: 600; font-size: 24px; color:white;">BURGEAPLY</div>
+        <div id="app-version" style="color:var(--text-muted); font-size:12px; margin-top:5px;">Loading...</div>
+        <div class="loader-bar-bg">
+            <div class="loader-bar-fill" id="splash-bar"></div>
+        </div>
+    </div>
+
+    <!-- PROCESS OVERLAY -->
+    <div id="processing-overlay">
+        <div style="font-size: 40px; margin-bottom: 20px; animation: float 2s infinite;">⚙️</div>
+        <div id="proc-title" style="font-weight: 700; font-size: 22px;">Traitement en cours</div>
+        <div id="proc-desc" style="color: var(--text-muted); margin-top: 5px;">Veuillez patienter...</div>
+        <div class="loader-bar-bg" style="width: 300px; background: rgba(255,255,255,0.1);">
+            <div class="loader-bar-fill" id="proc-bar"></div>
+        </div>
+        <div id="proc-percent"
+            style="margin-top: 10px; font-family: monospace; font-weight: bold; color: var(--accent);">0%</div>
+    </div>
+
+    <!-- TOAST CONTAINER -->
+    <div id="toast-container"></div>
+
+    <div id="app" style="opacity:0; transition: opacity 1s;">
+
+        <!-- 1. CONTENT AREA (BACKGROUND) -->
+        <div id="content-area">
+            <!-- HOME VIEW -->
+            <div id="view-home" class="view-section active">
+                <div class="home-hero">
+                    <img src="logo.png" style="width: 100px; margin-bottom: 30px;">
+                    <h1>BURGEAPLY</h1>
+                    <p style="color: var(--text-muted); max-width: 400px; margin: 10px auto; line-height: 1.6;">
+                        Plateforme d'ingénierie environnementale avancée.<br>
+                        Exploration BSS, Cartographie et Outils SSP.
+                    </p>
+                    <div style="margin-top: 40px;">
+                        <!-- Note: This button target implies the presence of the 2nd dock item (geotoolbox) -->
+                        <button class="btn-glow"
+                            onclick="switchView('geotoolbox', document.querySelectorAll('.dock-item')[1])">
+                            <!-- SVG Icon hardcoded for Home button for now, or loaded via JS? -->
+                            <!-- Let's put a generic icon or rely on the fact that JS isn't rendering icons here -->
+                            Lancer GéoToolbox
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PLACEHOLDER FOR DYNAMIC VIEWS -->
+            <div id="content-area-placeholder"></div>
+        </div>
+
+        <!-- 2. FLOATING DOCK (FOREGROUND) -->
+        <div id="dock-container" class="glass-panel">
+            <div class="dock-logo">
+                <img src="logo.png">
+                <div class="dock-title">BURGEAPLY</div>
+            </div>
+
+            <div class="dock-item active" onclick="switchView('home', this)">
+                <div class="icon-box">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                        <polyline points="9 22 9 12 15 12 15 22" />
+                    </svg>
+                </div>
+                <div class="label">Accueil</div>
+            </div>
+
+            <!-- PLACEHOLDER FOR DYNAMIC MENU ITEMS -->
+            <div id="dock-menu-placeholder"></div>
+
+            <div id="dock-footer">
+                <span id="dock-footer-version">v...</span><br>
+                Développé par Laurent BRIGAUD<br>
+                Idée originale : Amine El Mahlali<br>
+                GINGER BURGEAP
+            </div>
+        </div>
+
+    </div>
+
+    <script src="js/app.js"></script>
+    <script src="js/geotoolbox.js"></script>
+    <script src="js/orthohisto.js"></script>
+</body>
+
+</html>
