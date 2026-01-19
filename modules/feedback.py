@@ -9,7 +9,7 @@ from modules import core
 TOOL_INFO = {
     "id": "feedback",
     "name": "Feedback & Support",
-    "icon": "📢", 
+    "icon": "📢",
     "description": "Signaler un bug ou proposer une idée"
 }
 
@@ -19,7 +19,7 @@ TOOL_INFO = {
 def send_discord_feedback(category, message, trigram, contact_info=""):
     # Récupération de l'URL depuis la configuration centralisée
     webhook_url = core.CONFIG.get('discord', {}).get('webhook_url')
-    
+
     # Vérification basique
     if not webhook_url or "TON_URL" in webhook_url:
         logging.error("URL Discord non configurée ou invalide dans config.json")
@@ -27,7 +27,7 @@ def send_discord_feedback(category, message, trigram, contact_info=""):
 
     try:
         logging.info(f"Envoi feedback ({category}) de {trigram}")
-        
+
         # Couleurs Discord
         color = 5763719 # Gris (Autre)
         if category == "bug": color = 15548997 # Rouge
@@ -65,7 +65,7 @@ def send_discord_feedback(category, message, trigram, contact_info=""):
         # Envoi via la session centralisée (optimisée)
         session = core.get_session()
         response = session.post(
-            webhook_url, 
+            webhook_url,
             data=json.dumps(payload),
             headers={"Content-Type": "application/json"}
         )

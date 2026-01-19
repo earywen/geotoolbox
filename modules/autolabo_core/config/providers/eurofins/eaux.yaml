@@ -1,0 +1,41 @@
+matrix: eaux
+
+parsing:
+  date_row: 0
+  name_row: 2
+  data_start_row: 3
+  date_format: "%d/%m/%Y"
+  sample_exclude_keywords:
+    - "nan"
+    - "résultat"
+    - "resultat"
+    - "paramètre"
+    - "unité"
+    - "nom d'échantillon"
+
+# Column mapping (0-indexed)
+# RAW file: col 0=Name, col 1=Result
+# REF file: col 0=code, col 4=name, col 5=unit
+# Strategy: Match by Name (Col 4 of REF) using Col 0 of RAW
+columns:
+  code: 4           # Use Name as key from REF
+  name: 4           # Name from REF
+  unit: 5           # Unit from REF
+  family: 1         # Family from REF
+  raw_code_col: 0   # Parameter Name in RAW file
+
+regulatory_cols: [6, 7, 8, 9]
+regulatory_headers:
+  - title: "Limite de Qualité (Eaux Brutes)"
+    color: "orange"
+    column: 6
+  - title: "Eau potable OMS, 2022"
+    color: "green"
+    column: 7
+  # (Simplified list for now, ideally should match Agrolab's if Ref file is same)
+
+formatting_mode: eaux
+
+legend:
+  notes: []
+  color_items: []

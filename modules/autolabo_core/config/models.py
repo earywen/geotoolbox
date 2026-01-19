@@ -17,7 +17,7 @@ from pydantic import BaseModel, Field
 class ProviderMeta(BaseModel):
     """
     Métadonnées globales d'un laboratoire.
-    
+
     Attributes:
         id: Identifiant unique du laboratoire (ex: "agrolab", "eurofins")
         name: Nom complet du laboratoire
@@ -26,9 +26,9 @@ class ProviderMeta(BaseModel):
     """
     id: str = Field(..., description="Identifiant unique du laboratoire")
     name: str = Field(..., description="Nom complet du laboratoire")
-    key_type: Literal["internal_code", "cas_number"] = Field(
-        ..., 
-        description="Type de clé: 'internal_code' pour AGROLAB, 'cas_number' pour EUROFINS"
+    key_type: Literal["internal_code", "cas_number", "parameter_name"] = Field(
+        ...,
+        description="Type de clé: 'internal_code', 'cas_number', ou 'parameter_name'"
     )
     matrices: List[str] = Field(
         default_factory=list,
@@ -43,14 +43,14 @@ class ProviderMeta(BaseModel):
 class ColumnMapping(BaseModel):
     """
     Mapping des colonnes dans les fichiers bruts du laboratoire.
-    
+
     Les indices sont 0-based (première colonne = 0).
     """
     code: int = Field(..., description="Indice de la colonne contenant le code paramètre (REF file)")
     name: int = Field(..., description="Indice de la colonne contenant le nom du paramètre")
     unit: int = Field(..., description="Indice de la colonne contenant l'unité")
     family: Optional[int] = Field(
-        default=None, 
+        default=None,
         description="Indice de la colonne contenant la famille/groupe"
     )
     raw_code_col: Optional[int] = Field(
@@ -67,7 +67,7 @@ class ParsingConfig(BaseModel):
     name_row: int = Field(..., description="Ligne contenant les noms d'échantillons")
     data_start_row: int = Field(..., description="Première ligne de données")
     date_format: str = Field(
-        default="%Y%m%d", 
+        default="%Y%m%d",
         description="Format des dates dans le fichier"
     )
     sample_exclude_keywords: List[str] = Field(
@@ -88,14 +88,14 @@ class RegulatoryHeader(BaseModel):
 class VirtualRowConfig(BaseModel):
     """
     Configuration d'une ligne virtuelle (somme de paramètres).
-    
+
     Utilisé pour les sommes comme "Somme 7 PCB" ou "HAP (EPA) - somme".
     """
     key: str = Field(..., description="Clé unique de la ligne virtuelle")
     name: str = Field(..., description="Nom affiché dans le rapport")
     unit: str = Field(..., description="Unité de la somme")
     components: List[str] = Field(
-        ..., 
+        ...,
         description="Liste des clés des paramètres composants"
     )
     ref_limits: Dict[str, str] = Field(
@@ -138,18 +138,18 @@ class LegendConfig(BaseModel):
 class MatrixConfig(BaseModel):
     """
     Configuration complète pour une matrice d'un laboratoire.
-    
+
     Chaque matrice (sols, eaux souterraines, etc.) a sa propre configuration
     définissant le parsing, les colonnes, les seuils réglementaires et la légende.
     """
     matrix: str = Field(..., description="Identifiant de la matrice: 'sols', 'eaux', 'sup'")
-    
+
     # Parsing
     parsing: ParsingConfig = Field(..., description="Configuration du parsing")
-    
+
     # Columns
     columns: ColumnMapping = Field(..., description="Mapping des colonnes")
-    
+
     # Regulatory
     regulatory_headers: List[RegulatoryHeader] = Field(
         default_factory=list,
@@ -159,25 +159,25 @@ class MatrixConfig(BaseModel):
         default_factory=list,
         description="Indices des colonnes réglementaires dans le fichier de référence"
     )
-    
+
     # Key mappings
     key_aliases: Dict[str, str] = Field(
         default_factory=dict,
         description="Alias de clés: {clé_brute: clé_référence}"
     )
-    
+
     # Virtual rows (sums)
     virtual_rows: List[VirtualRowConfig] = Field(
         default_factory=list,
         description="Lignes virtuelles (sommes de paramètres)"
     )
-    
+
     # Formatting
     formatting_mode: Literal["eaux", "sols"] = Field(
         default="eaux",
         description="Mode de formatage conditionnel"
     )
-    
+
     # Legend
     legend: LegendConfig = Field(
         default_factory=LegendConfig,

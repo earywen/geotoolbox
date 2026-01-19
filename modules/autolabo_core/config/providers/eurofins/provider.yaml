@@ -1,0 +1,6 @@
+# EUROFINS - Provider Metadata
+id: eurofins
+name: "Eurofins"
+key_type: parameter_name
+matrices:
+  - eaux

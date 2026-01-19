@@ -1,11 +1,23 @@
 # modules/version.py
 
 # --- INFO ACTUELLE ---
-CURRENT_VERSION = "2.0.0"  # Refonte UI majeure (v2)
-RELEASE_DATE = "23 Décembre 2025"
+CURRENT_VERSION = "2.1.0"  # Fort Knox Update (Sécurité & Qualité)
+RELEASE_DATE = "17 Janvier 2026"
 
 # --- HISTORIQUE (Le plus récent en haut) ---
 CHANGELOG = [
+    {
+        "version": "2.1.0",
+        "date": "17 Janvier 2026",
+        "type": "minor",
+        "changes": [
+            "🛡️ Sécurité Renforcée : Protection 'Path Traversal', vérification SSL stricte (configurable), et gestion des secrets (.env)",
+            "🏗️ Refonte AutoLabo : Nouvelle architecture modulaire (GenericLabProcessor) pour un support Eurofins/Carso robuste",
+            "✅ Qualité Code : Couverture de tests à 100% sur le cœur de l'application (Core, GéoToolbox, Orthohisto)",
+            "🔧 Fiabilité : Validation des fichiers Excel en entrée et messages d'erreurs plus clairs pour l'utilisateur",
+            "⚡ Optimisation : Réduction des dépendances graphiques (UI Decoupling) pour une meilleure stabilité"
+        ]
+    },
     {
         "version": "2.0.0",
         "date": "23 Décembre 2025",
@@ -20,7 +32,7 @@ CHANGELOG = [
     {
         "version": "1.1.1",
         "date": "22 Décembre 2025",
-        "type": "patch", 
+        "type": "patch",
         "changes": [
             "🐛 Correction critique : Les fichiers téléchargés (Chronologie) sont désormais sauvegardés à côté de l'application et non dans un dossier temporaire caché."
         ]
@@ -28,7 +40,7 @@ CHANGELOG = [
     {
         "version": "1.1.0",
         "date": "22 Décembre 2025",
-        "type": "minor", 
+        "type": "minor",
         "changes": [
             "🏔️ Nouvel Algo Amont/Aval : Basé sur vecteur pente locale (150m) + validation altimétrique (Z)",
             "📊 Export Excel amélioré : Séparation Distance/Position, centrage et alertes visuelles (Jaune)",

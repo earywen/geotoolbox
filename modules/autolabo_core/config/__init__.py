@@ -4,7 +4,7 @@ from .registry import ProviderRegistry
 
 __all__ = [
     "ProviderMeta",
-    "MatrixConfig", 
+    "MatrixConfig",
     "ColumnMapping",
     "ParsingConfig",
     "ProviderRegistry"

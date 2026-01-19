@@ -1,4 +1,5 @@
 # Processors package
-from .base import GenericLabProcessor
+from .generic import GenericLabProcessor
+from .base import BaseProcessor
 
-__all__ = ["GenericLabProcessor"]
+__all__ = ["GenericLabProcessor", "BaseProcessor"]

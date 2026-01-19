@@ -1,0 +1,277 @@
+============================= test session starts =============================
+platform win32 -- Python 3.13.11, pytest-8.3.5, pluggy-1.5.0 -- C:\Python313\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\briga\Desktop\geotoolbox - antigravity - bmad\geotoolbox-app
+configfile: pyproject.toml
+testpaths: tests
+plugins: anyio-4.9.0, Faker-37.4.0, logfire-3.12.0, cov-7.0.0, mock-3.14.0, requests-mock-1.12.1
+collecting ... collected 3 items
+
+tests/test_autolabo/golden_master/test_golden_master.py::TestGoldenMaster::test_agrolab_eaux_golden_master FAILED [ 33%]
+tests/test_autolabo/golden_master/test_golden_master.py::TestGoldenMaster::test_eurofins_eaux_golden_master FAILED [ 66%]
+tests/test_autolabo/golden_master/test_golden_master.py::TestGoldenMaster::test_carso_sols_golden_master FAILED [100%]
+
+================================== FAILURES ===================================
+______________ TestGoldenMaster.test_agrolab_eaux_golden_master _______________
+
+self = <test_golden_master.TestGoldenMaster object at 0x0000027C9C8C2990>
+fixtures_dir = WindowsPath('C:/Users/briga/Desktop/geotoolbox - antigravity - bmad/geotoolbox-app/tests/test_autolabo/golden_master')
+golden_hashes = {'agrolab_eaux': '7629ce890d6f4f99c51565f49b8badec01be7c9cf2888c000bfc39f00ba5e597', 'carso_sols': '10f84f908102f01a85...3c135ce2f7ef7b5e2cc113124b9f3699', 'eurofins_eaux': 'f183659e3ee64cb76f7125915872c28059f36379fb5d3cde655549670e8aafa3'}
+tmp_path = WindowsPath('C:/Users/briga/AppData/Local/Temp/pytest-of-briga/pytest-4/test_agrolab_eaux_golden_maste0')
+
+    def test_agrolab_eaux_golden_master(self, fixtures_dir, golden_hashes, tmp_path):
+        """Verify Agrolab Eaux output matches Golden Master hash."""
+>       self._verify_hash("agrolab_eaux", fixtures_dir, golden_hashes, tmp_path)
+
+tests\test_autolabo\golden_master\test_golden_master.py:43: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <test_golden_master.TestGoldenMaster object at 0x0000027C9C8C2990>
+key = 'agrolab_eaux'
+fixtures_dir = WindowsPath('C:/Users/briga/Desktop/geotoolbox - antigravity - bmad/geotoolbox-app/tests/test_autolabo/golden_master')
+golden_hashes = {'agrolab_eaux': '7629ce890d6f4f99c51565f49b8badec01be7c9cf2888c000bfc39f00ba5e597', 'carso_sols': '10f84f908102f01a85...3c135ce2f7ef7b5e2cc113124b9f3699', 'eurofins_eaux': 'f183659e3ee64cb76f7125915872c28059f36379fb5d3cde655549670e8aafa3'}
+tmp_path = WindowsPath('C:/Users/briga/AppData/Local/Temp/pytest-of-briga/pytest-4/test_agrolab_eaux_golden_maste0')
+
+    def _verify_hash(self, key, fixtures_dir, golden_hashes, tmp_path):
+        """Generic verification logic."""
+        expected_hash = golden_hashes.get(key)
+        assert expected_hash, f"Hash for {key} not found in hashes file."
+    
+        # Input Path
+        input_filename = f"{key}_sample.xlsx"
+        input_path = str(fixtures_dir / "fixtures" / input_filename)
+        assert os.path.exists(input_path), f"Input file {input_path} missing."
+    
+        # Provider & Model
+        parts = key.split("_")
+        provider = parts[0]
+        model = "es" if "eaux" in parts[1] else "sols"
+    
+        # Output Target
+        target_dir = str(tmp_path)
+    
+        # Run Process with Mocked Datetime
+        # Patch must be where the class is imported/used in the module under test
+        with patch('modules.autolabo.datetime', MockDatetime):
+            result = process_and_export([input_path], model_id=model, target_path=target_dir, provider_id=provider)
+    
+        assert result["success"], f"Processing failed: {result.get('error')}"
+        output_path = result["output_path"]
+        assert os.path.exists(output_path), "Output file not found."
+    
+        # Calculate Hash
+        actual_hash = calculate_file_hash(output_path)
+    
+        # Comparison
+>       assert actual_hash == expected_hash, (
+            f"Hash mismatch for {key}.\n"
+            f"Expected: {expected_hash}\n"
+            f"Actual:   {actual_hash}\n"
+            "This suggests a regression in output generation or binary structure."
+        )
+E       AssertionError: Hash mismatch for agrolab_eaux.
+E         Expected: 7629ce890d6f4f99c51565f49b8badec01be7c9cf2888c000bfc39f00ba5e597
+E         Actual:   102cdd553179c91559303732bc20f748cc64d9dd19f59af94c2df54780769a0c
+E         This suggests a regression in output generation or binary structure.
+E       assert '102cdd553179c91559303732bc20f748cc64d9dd19f59af94c2df54780769a0c' == '7629ce890d6f4f99c51565f49b8badec01be7c9cf2888c000bfc39f00ba5e597'
+E         
+E         - 7629ce890d6f4f99c51565f49b8badec01be7c9cf2888c000bfc39f00ba5e597
+E         + 102cdd553179c91559303732bc20f748cc64d9dd19f59af94c2df54780769a0c
+
+tests\test_autolabo\golden_master\test_golden_master.py:84: AssertionError
+______________ TestGoldenMaster.test_eurofins_eaux_golden_master ______________
+
+self = <test_golden_master.TestGoldenMaster object at 0x0000027C9C8C2E90>
+fixtures_dir = WindowsPath('C:/Users/briga/Desktop/geotoolbox - antigravity - bmad/geotoolbox-app/tests/test_autolabo/golden_master')
+golden_hashes = {'agrolab_eaux': '7629ce890d6f4f99c51565f49b8badec01be7c9cf2888c000bfc39f00ba5e597', 'carso_sols': '10f84f908102f01a85...3c135ce2f7ef7b5e2cc113124b9f3699', 'eurofins_eaux': 'f183659e3ee64cb76f7125915872c28059f36379fb5d3cde655549670e8aafa3'}
+tmp_path = WindowsPath('C:/Users/briga/AppData/Local/Temp/pytest-of-briga/pytest-4/test_eurofins_eaux_golden_mast0')
+
+    def test_eurofins_eaux_golden_master(self, fixtures_dir, golden_hashes, tmp_path):
+        """Verify Eurofins Eaux output matches Golden Master hash."""
+>       self._verify_hash("eurofins_eaux", fixtures_dir, golden_hashes, tmp_path)
+
+tests\test_autolabo\golden_master\test_golden_master.py:47: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <test_golden_master.TestGoldenMaster object at 0x0000027C9C8C2E90>
+key = 'eurofins_eaux'
+fixtures_dir = WindowsPath('C:/Users/briga/Desktop/geotoolbox - antigravity - bmad/geotoolbox-app/tests/test_autolabo/golden_master')
+golden_hashes = {'agrolab_eaux': '7629ce890d6f4f99c51565f49b8badec01be7c9cf2888c000bfc39f00ba5e597', 'carso_sols': '10f84f908102f01a85...3c135ce2f7ef7b5e2cc113124b9f3699', 'eurofins_eaux': 'f183659e3ee64cb76f7125915872c28059f36379fb5d3cde655549670e8aafa3'}
+tmp_path = WindowsPath('C:/Users/briga/AppData/Local/Temp/pytest-of-briga/pytest-4/test_eurofins_eaux_golden_mast0')
+
+    def _verify_hash(self, key, fixtures_dir, golden_hashes, tmp_path):
+        """Generic verification logic."""
+        expected_hash = golden_hashes.get(key)
+        assert expected_hash, f"Hash for {key} not found in hashes file."
+    
+        # Input Path
+        input_filename = f"{key}_sample.xlsx"
+        input_path = str(fixtures_dir / "fixtures" / input_filename)
+        assert os.path.exists(input_path), f"Input file {input_path} missing."
+    
+        # Provider & Model
+        parts = key.split("_")
+        provider = parts[0]
+        model = "es" if "eaux" in parts[1] else "sols"
+    
+        # Output Target
+        target_dir = str(tmp_path)
+    
+        # Run Process with Mocked Datetime
+        # Patch must be where the class is imported/used in the module under test
+        with patch('modules.autolabo.datetime', MockDatetime):
+            result = process_and_export([input_path], model_id=model, target_path=target_dir, provider_id=provider)
+    
+        assert result["success"], f"Processing failed: {result.get('error')}"
+        output_path = result["output_path"]
+        assert os.path.exists(output_path), "Output file not found."
+    
+        # Calculate Hash
+        actual_hash = calculate_file_hash(output_path)
+    
+        # Comparison
+>       assert actual_hash == expected_hash, (
+            f"Hash mismatch for {key}.\n"
+            f"Expected: {expected_hash}\n"
+            f"Actual:   {actual_hash}\n"
+            "This suggests a regression in output generation or binary structure."
+        )
+E       AssertionError: Hash mismatch for eurofins_eaux.
+E         Expected: f183659e3ee64cb76f7125915872c28059f36379fb5d3cde655549670e8aafa3
+E         Actual:   d64c728b321842e3a6b855ff40f18c4acc923b64d3d1b7d4316c5fa7baeb026e
+E         This suggests a regression in output generation or binary structure.
+E       assert 'd64c728b321842e3a6b855ff40f18c4acc923b64d3d1b7d4316c5fa7baeb026e' == 'f183659e3ee64cb76f7125915872c28059f36379fb5d3cde655549670e8aafa3'
+E         
+E         - f183659e3ee64cb76f7125915872c28059f36379fb5d3cde655549670e8aafa3
+E         + d64c728b321842e3a6b855ff40f18c4acc923b64d3d1b7d4316c5fa7baeb026e
+
+tests\test_autolabo\golden_master\test_golden_master.py:84: AssertionError
+------------------------------ Captured log call ------------------------------
+WARNING  root:autolabo.py:895 Falling back to legacy processor: Provider config not found: C:\Users\briga\Desktop\geotoolbox - antigravity - bmad\geotoolbox-app\modules\autolabo_core\config\providers\eurofins\provider.yaml
+_______________ TestGoldenMaster.test_carso_sols_golden_master ________________
+
+self = <test_golden_master.TestGoldenMaster object at 0x0000027C9C883490>
+fixtures_dir = WindowsPath('C:/Users/briga/Desktop/geotoolbox - antigravity - bmad/geotoolbox-app/tests/test_autolabo/golden_master')
+golden_hashes = {'agrolab_eaux': '7629ce890d6f4f99c51565f49b8badec01be7c9cf2888c000bfc39f00ba5e597', 'carso_sols': '10f84f908102f01a85...3c135ce2f7ef7b5e2cc113124b9f3699', 'eurofins_eaux': 'f183659e3ee64cb76f7125915872c28059f36379fb5d3cde655549670e8aafa3'}
+tmp_path = WindowsPath('C:/Users/briga/AppData/Local/Temp/pytest-of-briga/pytest-4/test_carso_sols_golden_master0')
+
+    def test_carso_sols_golden_master(self, fixtures_dir, golden_hashes, tmp_path):
+        """Verify Carso Sols output matches Golden Master hash."""
+>       self._verify_hash("carso_sols", fixtures_dir, golden_hashes, tmp_path)
+
+tests\test_autolabo\golden_master\test_golden_master.py:51: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <test_golden_master.TestGoldenMaster object at 0x0000027C9C883490>
+key = 'carso_sols'
+fixtures_dir = WindowsPath('C:/Users/briga/Desktop/geotoolbox - antigravity - bmad/geotoolbox-app/tests/test_autolabo/golden_master')
+golden_hashes = {'agrolab_eaux': '7629ce890d6f4f99c51565f49b8badec01be7c9cf2888c000bfc39f00ba5e597', 'carso_sols': '10f84f908102f01a85...3c135ce2f7ef7b5e2cc113124b9f3699', 'eurofins_eaux': 'f183659e3ee64cb76f7125915872c28059f36379fb5d3cde655549670e8aafa3'}
+tmp_path = WindowsPath('C:/Users/briga/AppData/Local/Temp/pytest-of-briga/pytest-4/test_carso_sols_golden_master0')
+
+    def _verify_hash(self, key, fixtures_dir, golden_hashes, tmp_path):
+        """Generic verification logic."""
+        expected_hash = golden_hashes.get(key)
+        assert expected_hash, f"Hash for {key} not found in hashes file."
+    
+        # Input Path
+        input_filename = f"{key}_sample.xlsx"
+        input_path = str(fixtures_dir / "fixtures" / input_filename)
+        assert os.path.exists(input_path), f"Input file {input_path} missing."
+    
+        # Provider & Model
+        parts = key.split("_")
+        provider = parts[0]
+        model = "es" if "eaux" in parts[1] else "sols"
+    
+        # Output Target
+        target_dir = str(tmp_path)
+    
+        # Run Process with Mocked Datetime
+        # Patch must be where the class is imported/used in the module under test
+        with patch('modules.autolabo.datetime', MockDatetime):
+            result = process_and_export([input_path], model_id=model, target_path=target_dir, provider_id=provider)
+    
+        assert result["success"], f"Processing failed: {result.get('error')}"
+        output_path = result["output_path"]
+        assert os.path.exists(output_path), "Output file not found."
+    
+        # Calculate Hash
+        actual_hash = calculate_file_hash(output_path)
+    
+        # Comparison
+>       assert actual_hash == expected_hash, (
+            f"Hash mismatch for {key}.\n"
+            f"Expected: {expected_hash}\n"
+            f"Actual:   {actual_hash}\n"
+            "This suggests a regression in output generation or binary structure."
+        )
+E       AssertionError: Hash mismatch for carso_sols.
+E         Expected: 10f84f908102f01a85b4a27e24b0f7cf3c135ce2f7ef7b5e2cc113124b9f3699
+E         Actual:   dcdcfbfe9538cdd3eee834a682ba902ff2aa3d0187bcc0dd09f4b2f4857fe575
+E         This suggests a regression in output generation or binary structure.
+E       assert 'dcdcfbfe9538cdd3eee834a682ba902ff2aa3d0187bcc0dd09f4b2f4857fe575' == '10f84f908102f01a85b4a27e24b0f7cf3c135ce2f7ef7b5e2cc113124b9f3699'
+E         
+E         - 10f84f908102f01a85b4a27e24b0f7cf3c135ce2f7ef7b5e2cc113124b9f3699
+E         + dcdcfbfe9538cdd3eee834a682ba902ff2aa3d0187bcc0dd09f4b2f4857fe575
+
+tests\test_autolabo\golden_master\test_golden_master.py:84: AssertionError
+------------------------------ Captured log call ------------------------------
+WARNING  root:autolabo.py:895 Falling back to legacy processor: Provider config not found: C:\Users\briga\Desktop\geotoolbox - antigravity - bmad\geotoolbox-app\modules\autolabo_core\config\providers\carso\provider.yaml
+============================== warnings summary ===============================
+..\..\..\AppData\Roaming\Python\Python313\site-packages\pytz\tzinfo.py:27
+  C:\Users\briga\AppData\Roaming\Python\Python313\site-packages\pytz\tzinfo.py:27: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    _epoch = datetime.utcfromtimestamp(0)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=============================== tests coverage ================================
+______________ coverage: platform win32, python 3.13.11-final-0 _______________
+
+Name                                              Stmts   Miss  Cover   Missing
+-------------------------------------------------------------------------------
+modules\__init__.py                                   0      0   100%
+modules\about.py                                     15     15     0%   1-48
+modules\autolabo.py                                 482     80    83%   32, 42, 45, 48, 52, 231, 274, 282, 288-291, 294, 296, 298, 310-316, 381-386, 392-393, 425-426, 455, 469, 567-568, 595, 623, 626-628, 642-656, 659-660, 706-712, 768, 771-772, 780-785, 788, 814, 853, 867, 879, 906-908, 922-924, 931, 935
+modules\autolabo_core\__init__.py                     2      0   100%
+modules\autolabo_core\config\__init__.py              3      0   100%
+modules\autolabo_core\config\models.py               47      0   100%
+modules\autolabo_core\config\registry.py             77     29    62%   66, 86-88, 109, 115, 129-131, 140-150, 162-172, 176-178, 184
+modules\autolabo_core\exporters\__init__.py           3      3     0%   2-5
+modules\autolabo_core\exporters\excel_writer.py     205    205     0%   8-361
+modules\autolabo_core\exporters\formatter.py         72     72     0%   8-260
+modules\autolabo_core\processors\__init__.py          2      0   100%
+modules\autolabo_core\processors\base.py            407    151    63%   92, 144-157, 169, 173-175, 190, 203, 215, 219, 227-228, 248, 254-326, 330-341, 556, 581, 615-620, 627-628, 636-649, 657, 662, 669-686, 695-701, 704, 706, 708, 746-756, 768-779, 784, 789, 793-794
+modules\core.py                                      96     74    23%   21, 35-38, 45-106, 110-126, 130-142, 146-156, 164-175
+modules\feedback.py                                  30     30     0%   1-89
+modules\geotoolbox.py                               115    115     0%   1-216
+modules\orthohisto.py                               168    168     0%   1-269
+modules\updater.py                                   24     24     0%   2-49
+modules\version.py                                    3      3     0%   4-8
+-------------------------------------------------------------------------------
+TOTAL                                              1751    969    45%
+Coverage HTML written to dir htmlcov
+=========================== short test summary info ===========================
+FAILED tests/test_autolabo/golden_master/test_golden_master.py::TestGoldenMaster::test_agrolab_eaux_golden_master - AssertionError: Hash mismatch for agrolab_eaux.
+  Expected: 7629ce890d6f4f99c51565f49b8badec01be7c9cf2888c000bfc39f00ba5e597
+  Actual:   102cdd553179c91559303732bc20f748cc64d9dd19f59af94c2df54780769a0c
+  This suggests a regression in output generation or binary structure.
+assert '102cdd553179c91559303732bc20f748cc64d9dd19f59af94c2df54780769a0c' == '7629ce890d6f4f99c51565f49b8badec01be7c9cf2888c000bfc39f00ba5e597'
+  
+  - 7629ce890d6f4f99c51565f49b8badec01be7c9cf2888c000bfc39f00ba5e597
+  + 102cdd553179c91559303732bc20f748cc64d9dd19f59af94c2df54780769a0c
+FAILED tests/test_autolabo/golden_master/test_golden_master.py::TestGoldenMaster::test_eurofins_eaux_golden_master - AssertionError: Hash mismatch for eurofins_eaux.
+  Expected: f183659e3ee64cb76f7125915872c28059f36379fb5d3cde655549670e8aafa3
+  Actual:   d64c728b321842e3a6b855ff40f18c4acc923b64d3d1b7d4316c5fa7baeb026e
+  This suggests a regression in output generation or binary structure.
+assert 'd64c728b321842e3a6b855ff40f18c4acc923b64d3d1b7d4316c5fa7baeb026e' == 'f183659e3ee64cb76f7125915872c28059f36379fb5d3cde655549670e8aafa3'
+  
+  - f183659e3ee64cb76f7125915872c28059f36379fb5d3cde655549670e8aafa3
+  + d64c728b321842e3a6b855ff40f18c4acc923b64d3d1b7d4316c5fa7baeb026e
+FAILED tests/test_autolabo/golden_master/test_golden_master.py::TestGoldenMaster::test_carso_sols_golden_master - AssertionError: Hash mismatch for carso_sols.
+  Expected: 10f84f908102f01a85b4a27e24b0f7cf3c135ce2f7ef7b5e2cc113124b9f3699
+  Actual:   dcdcfbfe9538cdd3eee834a682ba902ff2aa3d0187bcc0dd09f4b2f4857fe575
+  This suggests a regression in output generation or binary structure.
+assert 'dcdcfbfe9538cdd3eee834a682ba902ff2aa3d0187bcc0dd09f4b2f4857fe575' == '10f84f908102f01a85b4a27e24b0f7cf3c135ce2f7ef7b5e2cc113124b9f3699'
+  
+  - 10f84f908102f01a85b4a27e24b0f7cf3c135ce2f7ef7b5e2cc113124b9f3699
+  + dcdcfbfe9538cdd3eee834a682ba902ff2aa3d0187bcc0dd09f4b2f4857fe575
+======================== 3 failed, 1 warning in 1.93s =========================

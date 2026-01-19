@@ -1,9 +1,7 @@
-import requests
 import re
 import logging
-import json
 from concurrent.futures import ThreadPoolExecutor
-from modules import core 
+from modules import core
 from .models import LAYERS_CONFIG
 from .parsers import parse_gml_response
 
@@ -14,14 +12,14 @@ def scrape_ssp_activity(session, url):
         if r.status_code != 200: return "Err HTTP"
         html = r.text.replace('\n', ' ').replace('\r', ' ')
         html = re.sub(r'\s+', ' ', html)
-        
+
         m_prim = re.search(r"Activit(?:é|e)\s*principale.*?<td[^>]*>.*?<span>(.*?)</span>", html, re.IGNORECASE)
         val_prim = ""
         if m_prim:
             val_prim = re.sub(r'<[^>]+>', '', m_prim.group(1)).strip()
         if val_prim and "Non renseignée" not in val_prim and "Indéterminé" not in val_prim:
             return val_prim
-            
+
         m_sec = re.search(r"Activit(?:é|e)\(s\)\s*secondaire\(s\).*?<tbody>.*?<td>(.*?)</td>", html, re.IGNORECASE)
         if m_sec:
             val_sec = re.sub(r'<[^>]+>', '', m_sec.group(1)).strip()
@@ -44,17 +42,17 @@ def fetch_features(layer_key, bbox, mode='preview'):
 
     min_lon, min_lat = max(bbox['min_lon'], -180), max(bbox['min_lat'], -90)
     max_lon, max_lat = min(bbox['max_lon'], 180), min(bbox['max_lat'], 90)
-    
+
     # Par défaut WFS 1.0.0 (Lon,Lat)
     params = {
-        "service": "WFS", 
-        "version": "1.0.0", 
-        "request": "GetFeature", 
-        "typeName": config["layer_name"], 
-        "bbox": f"{min_lon},{min_lat},{max_lon},{max_lat}", 
+        "service": "WFS",
+        "version": "1.0.0",
+        "request": "GetFeature",
+        "typeName": config["layer_name"],
+        "bbox": f"{min_lon},{min_lat},{max_lon},{max_lat}",
         "srsName": "EPSG:4326"
     }
-    
+
     # SPÉCIFIQUE IGN : WFS 2.0.0 + Axis Order Lat,Lon pour EPSG:4326
     if config.get('url_key') == 'ign_wfs_url':
         params['version'] = "2.0.0"
@@ -65,7 +63,7 @@ def fetch_features(layer_key, bbox, mode='preview'):
 
     try:
         response = session.get(base_url, params=params, timeout=30)
-        if response.status_code == 200: 
+        if response.status_code == 200:
             rows = parse_gml_response(response.text)
             logging.info(f"[{layer_key}] {len(rows)} objets trouvés")
         else: logging.warning(f"[{layer_key}] Erreur HTTP {response.status_code}")
@@ -74,7 +72,7 @@ def fetch_features(layer_key, bbox, mode='preview'):
     if layer_key == "BSS" and rows:
         def scrape_bss(row):
             bss_id = row.get("bss_id")
-            if not bss_id: 
+            if not bss_id:
                 row['niveau_eau_scrappe'] = "-"
                 return row
             clean_id = bss_id.split('/')[0] if '/' in bss_id else bss_id
@@ -86,10 +84,11 @@ def fetch_features(layer_key, bbox, mode='preview'):
                     html_flat = r.text.replace('\n', ' ').replace('\r', ' ')
                     m = re.search(r"Niveau d'eau mesuré par rapport au sol.*?([\d]+(?:[\.,]\d+)?)\s*m", html_flat, re.IGNORECASE)
                     row['niveau_eau_scrappe'] = f"{m.group(1)} m" if m else "Non indiqué"
-            except: row['niveau_eau_scrappe'] = "-"
+            except Exception:
+                row['niveau_eau_scrappe'] = "-"
             return row
         with ThreadPoolExecutor(max_workers=20) as executor: list(executor.map(scrape_bss, rows))
-    
+
     elif layer_key == "SSP" and mode == 'export' and rows:
         logging.info(f"Start Scraping Activités pour {len(rows)} sites SSP...")
         def scrape_ssp(row):

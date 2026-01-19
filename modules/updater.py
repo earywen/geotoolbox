@@ -1,6 +1,5 @@
 # modules/updater.py
 import logging
-import requests
 import semver
 from modules import core, version
 
@@ -16,20 +15,20 @@ def check_for_updates():
     try:
         logging.info("🔍 Recherche de mises à jour...")
         session = core.get_session() # On réutilise ta session configurée (proxy etc)
-        
+
         # Timeout court (3s) pour ne pas bloquer l'app si le réseau est lent
         response = session.get(UPDATE_URL, timeout=3)
-        
+
         if response.status_code == 200:
             data = response.json()
             remote_ver_str = data.get("version", "0.0.0")
             local_ver_str = version.CURRENT_VERSION
-            
+
             # Comparaison propre avec semver (installé dans ton requirements.txt)
             # On parse les versions pour pouvoir les comparer mathématiquement
             remote_ver = semver.Version.parse(remote_ver_str)
             local_ver = semver.Version.parse(local_ver_str)
-            
+
             if remote_ver > local_ver:
                 logging.info(f"✨ Update disponible: {remote_ver_str} (Local: {local_ver_str})")
                 return {
@@ -39,7 +38,7 @@ def check_for_updates():
                     "url": data.get("download_url"),
                     "message": data.get("message", "Nouvelle version disponible.")
                 }
-        
+
         logging.info("✅ Application à jour.")
         return None
 

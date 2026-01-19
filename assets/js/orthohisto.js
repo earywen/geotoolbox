@@ -86,6 +86,17 @@ window.startFullExtraction = function () {
                 if (i.status.includes("404")) col = "#f87171";
                 l.innerHTML += `<span style='color:${col}'>[${i.annee}] ${i.status}</span><br>`;
             });
+
+            // Add Open Folder Button
+            l.innerHTML += `
+                <div style="margin-top: 20px; text-align: center;">
+                    <button onclick="window.pywebview.api.open_file('${res.folder.replace(/\\/g, '\\\\')}')"
+                        style="padding: 8px 15px; border-radius: 8px; border: 1px solid #10b981; background: rgba(16, 185, 129, 0.2); color: white; cursor: pointer; font-weight: bold; font-size: 12px;">
+                        📂 Ouvrir le dossier Export
+                    </button>
+                </div>
+            `;
+
             showToast("success", "Extraction terminée ! (" + res.summary.length + " fichiers)", 6000);
         }
     }).catch(err => {

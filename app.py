@@ -142,6 +142,7 @@ class BurgeaplyApi:
 
     def run_export(self, bbox: Dict[str, float], layers: List[str], folder: str, path: str) -> Dict[str, Any]:
         """Proxy for Geotoolbox Export Logic"""
+        # Using default CoreEventReporter for now, but fully decoupled via Protocol
         return geotoolbox.run_export_logic(bbox, layers, folder, path)
 
     def run_save_map(self, b64: str, path: str) -> Optional[str]:
@@ -182,29 +183,104 @@ class BurgeaplyApi:
 
     # --- AUTOLABO PROXIES ---
     # --- AUTOLABO PROXIES ---
-    def run_autolabo_process(self, file_paths: Union[str, List[str]], model_id: str = "es", target_path: str = "", provider_id: str = "agrolab") -> Dict[str, Any]:
-        """Proxy for AutoLabo Processing
+    def process_autolabo(self, file_paths: Union[str, List[str]], model_id: str, target_path: str = "", provider_id: str = "auto", options: Union[str, Dict[str, Any]] = None, **kwargs) -> Dict[str, Any]:
+        """
+        Process AutoLabo files with options.
         
         Args:
             file_paths: Path(s) to raw lab file(s)
             model_id: Matrix ID (es, sols, sup)
             target_path: Optional target directory
             provider_id: Laboratory provider ID (agrolab, eurofins)
+            options: Optional processing options (passed as JSON string or dict)
         """
+        # Handle options (JSON string from JS to avoid pywebview kwarg unpacking)
+        final_options = {}
+        
+        if isinstance(options, str):
+            try:
+                final_options = json.loads(options)
+            except json.JSONDecodeError as e:
+                logging.error(f"Failed to decode options JSON: {e}")
+        elif isinstance(options, dict):
+            final_options = options
+        
+        # Merge kwargs (fallback)
+        if kwargs:
+            final_options.update(kwargs)
+
         # Ensure list
+        logging.info(f"APP: process_autolabo called with {len(file_paths) if isinstance(file_paths, list) else 1} files. Options: {final_options}")
         if isinstance(file_paths, str):
             file_paths = [file_paths]
             
         # Dispatch Loader Event
         core.dispatch_event('loader_update', {'percent': 10, 'message': 'Analyse des fichiers...'})
         try:
-            result = autolabo.process_and_export(file_paths, model_id, target_path, provider_id)
+            result = autolabo.process_and_export(file_paths, model_id, target_path, provider_id, final_options)
             core.dispatch_event('loader_update', {'percent': 100, 'message': 'Terminé !'})
             return result
         except Exception as e:
             logging.error(f"AutoLabo Error: {e}")
             core.dispatch_event('loader_hide', {})
             return {"success": False, "error": str(e)}
+
+    def preview_autolabo_file(self, file_path: str) -> Dict[str, Any]:
+        """Preview a lab file before processing.
+        
+        Returns summary info: samples count, parameters count, detected provider.
+        """
+        try:
+            return autolabo.preview_file(file_path)
+        except Exception as e:
+            logging.error(f"AutoLabo Preview Error: {e}")
+            return {"samples": 0, "parameters": 0, "provider_guess": "erreur"}
+            
+    def analyze_preview(self, file_path: str, model_id: str, provider_id: str) -> Dict[str, Any]:
+        """Perform a dry-run analysis for detailed preview.
+        
+        Args:
+            file_path: Path to the lab file.
+            model_id: Matrix model ID (es, sols, etc.)
+            provider_id: Provider ID (agrolab, eurofins, etc.)
+            
+        Returns:
+            Dict with success, data (list of rows), or error.
+        """
+        try:
+            return autolabo.analyze_preview(file_path, model_id, provider_id)
+        except Exception as e:
+            logging.error(f"Analyze Preview Error: {e}")
+            return {"success": False, "error": str(e)}
+            
+    # --- CUSTOM RULES API ---
+    def get_custom_rules(self, matrix: str) -> Dict[str, Any]:
+        """Get all custom rules for a matrix."""
+        try:
+            from modules.autolabo_core.rules import RuleManager
+            return RuleManager().get_rules(matrix)
+        except Exception as e:
+            logging.error(f"Error fetching rules: {e}")
+            return {}
+            
+    def set_custom_rule(self, matrix: str, parameter: str, column: str, value: float) -> bool:
+        """Set a custom rule."""
+        try:
+            from modules.autolabo_core.rules import RuleManager
+            return RuleManager().set_rule(matrix, parameter, column, value)
+        except Exception as e:
+            logging.error(f"Error setting rule: {e}")
+            return False
+            
+    def delete_custom_rule(self, matrix: str, parameter: str) -> bool:
+        """Delete a custom rule."""
+        try:
+            from modules.autolabo_core.rules import RuleManager
+            return RuleManager().delete_rule(matrix, parameter)
+        except Exception as e:
+            logging.error(f"Error deleting rule: {e}")
+            return False
+            return {"samples": 0, "parameters": 0, "provider_guess": "erreur"}
 
 
 

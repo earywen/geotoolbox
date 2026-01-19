@@ -231,9 +231,27 @@ class GeotoolboxManager {
                 const log = document.getElementById('status-log');
                 if (log && res.summary) {
                     log.style.display = 'block';
-                    log.innerHTML = res.summary.map(s =>
+
+                    // Results List
+                    let html = res.summary.map(s =>
                         `<div class="res-item"><span style="color:var(--accent)">${s.layer}</span>: ${s.count}</div>`
                     ).join('');
+
+                    // Open Folder Button
+                    // We use open_file(folder) because os.startfile(folder) opens it (enters directory)
+                    // whereas open_folder(folder) calls explorer /select which just highlights it.
+                    if (res.folder) {
+                        html += `
+                        <div style="margin-top: 15px; text-align: center;">
+                            <button onclick="window.pywebview.api.open_file('${res.folder.replace(/\\/g, '\\\\')}')" 
+                                class="btn-secondary" style="font-size: 11px; padding: 6px 12px; width: auto;">
+                                📂 Ouvrir le dossier Export
+                            </button>
+                        </div>
+                        `;
+                    }
+
+                    log.innerHTML = html;
                 }
             } catch (err) {
                 if (window.hideLoader) window.hideLoader();

@@ -1,4 +1,3 @@
-import os
 
 # ==========================================
 # CONFIGURATION DES COUCHES
@@ -8,17 +7,17 @@ LAYERS_CONFIG = {
         "label": "Sites Pollués (CASIAS/BASOL)",
         "url_key": "georisques_url",
         "layer_name": "ms:SSP_ETS_GE_POINT",
-        "format": "GML2", 
-        "color": "#ef4444", 
+        "format": "GML2",
+        "color": "#ef4444",
         "type": "point",
         "name_field": "nom_etablissement",
         "columns_mapping": {"code_metier": "ID", "nom_etablissement": "Nom", "etat_activite": "Etat"}
     },
     "SIS": {
-        "label": "Secteurs Information Sols (SIS)", 
+        "label": "Secteurs Information Sols (SIS)",
         "url_key": "georisques_url",
         "layer_name": "ms:SSP_CLASSIF_SIS_GE",
-        "format": "GML2", 
+        "format": "GML2",
         "color": "#fb923c",
         "type": "polygon",
         "name_field": "nom_etablissement"
@@ -27,7 +26,7 @@ LAYERS_CONFIG = {
         "label": "Servitudes Utilité Publique (SUP)",
         "url_key": "georisques_url",
         "layer_name": "ms:SSP_CLASSIF_SUP_GE",
-        "format": "GML2", 
+        "format": "GML2",
         "color": "#d946ef",
         "type": "polygon",
         "name_field": "nom_etablissement"
@@ -36,7 +35,7 @@ LAYERS_CONFIG = {
         "label": "Ouvrages BSS (Forages Eau)",
         "url_key": "brgm_wfs_url",
         "layer_name": "BSS_EAU_POINT",
-        "format": "GML2", 
+        "format": "GML2",
         "color": "#3b82f6",
         "type": "point",
         "id_field": "bss_id",
@@ -45,7 +44,7 @@ LAYERS_CONFIG = {
     },
     "PARCELLE": {
         "label": "Parcelles (IGN)",
-        "url_key": "ign_wfs_url", 
+        "url_key": "ign_wfs_url",
         "layer_name": "CADASTRALPARCELS.PARCELLAIRE_EXPRESS:parcelle",
         "format": "GML2",
         "color": "#eab308",

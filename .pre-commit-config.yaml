@@ -1,0 +1,50 @@
+# Pre-commit hooks for code quality and security
+# Install: pip install pre-commit && pre-commit install
+# Run manually: pre-commit run --all-files
+
+repos:
+  # Ruff - Fast Python linter
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.4
+    hooks:
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+        name: Ruff Linter
+        description: Run Ruff to check and fix Python code
+
+  # Bandit - Security linter
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.10
+    hooks:
+      - id: bandit
+        args: [-c, pyproject.toml]
+        additional_dependencies: ["bandit[toml]"]
+        name: Bandit Security Check
+        description: Check for common security issues
+
+  # Trufflehog - Secrets detection
+  - repo: https://github.com/trufflesecurity/trufflehog
+    rev: v3.86.2
+    hooks:
+      - id: trufflehog
+        name: TruffleHog Secrets Detection
+        description: Scan for secrets and credentials
+        entry: trufflehog filesystem . --only-verified --fail
+        language: system
+        pass_filenames: false
+
+  # Standard pre-commit hooks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+        name: Trim Trailing Whitespace
+      - id: end-of-file-fixer
+        name: Fix End of Files
+      - id: check-yaml
+        name: Check YAML Syntax
+      - id: check-added-large-files
+        args: [--maxkb=1000]
+        name: Check for Large Files
+      - id: check-merge-conflict
+        name: Check for Merge Conflicts

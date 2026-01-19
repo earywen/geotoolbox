@@ -36,6 +36,53 @@ function smartPanTo(map, latlng, zoom) {
 }
 window.smartPanTo = smartPanTo; // Expose for modules
 
+// --- LOADING MANAGER ---
+const LoadingManager = {
+    progress: 0,
+    interval: null,
+
+    start() {
+        // Start indeterminate loading (trickle up to 90%)
+        if (this.interval) clearInterval(this.interval);
+        this.interval = setInterval(() => {
+            if (this.progress < 90) {
+                // Decaying increment
+                const increment = (95 - this.progress) * 0.05;
+                this.progress += (increment < 0.1 ? 0.1 : increment);
+                this.updateUI();
+            }
+        }, 50);
+    },
+
+    complete() {
+        if (this.interval) clearInterval(this.interval);
+        this.progress = 100;
+        this.updateUI();
+
+        // Remove splash after short delay
+        setTimeout(() => {
+            const splash = document.getElementById('splash-screen');
+            if (splash) {
+                splash.style.opacity = '0';
+                setTimeout(() => {
+                    splash.style.display = 'none';
+                    const app = document.getElementById('app');
+                    if (app) app.style.opacity = '1';
+                    window.dispatchEvent(new Event('resize'));
+                }, 600);
+            }
+        }, 400);
+    },
+
+    updateUI() {
+        const bar = document.getElementById('splash-bar');
+        if (bar) bar.style.width = this.progress + '%';
+    }
+};
+
+// Start loading animation immediately on script load
+LoadingManager.start();
+
 /**
  * PYWEBVIEW ENTRY POINT
  */
@@ -67,7 +114,8 @@ window.addEventListener('pywebviewready', function () {
                     document.title = 'BURGEAPLY v' + data.version;
                 }
 
-                startSplash();
+                // Finish loading
+                LoadingManager.complete();
 
                 // Check Updates safely
                 setTimeout(() => window.pywebview.api.check_updates_ui(), 1000);
@@ -88,36 +136,30 @@ window.addEventListener('pywebviewready', function () {
             window.hideLoader();
         });
 
+        // AutoLabo Step Progress Listener
+        window.addEventListener('autolabo_step', (e) => {
+            if (e.detail && e.detail.step) {
+                const stepLabel = document.getElementById('step-label');
+                if (stepLabel) {
+                    stepLabel.innerText = e.detail.step;
+                }
+                // Also add to logs
+                const logsBox = document.getElementById('autolabo-logs');
+                if (logsBox) {
+                    const time = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                    const div = document.createElement('div');
+                    div.innerText = `[${time}] ${e.detail.step}`;
+                    logsBox.appendChild(div);
+                    logsBox.scrollTop = logsBox.scrollHeight;
+                }
+            }
+        });
+
     } else {
         console.error("PyWebView API not found. Are we running in the browser?");
     }
 });
 
-function startSplash() {
-    let p = 0;
-    const bar = document.getElementById('splash-bar');
-
-    const interval = setInterval(() => {
-        p += 4;
-        if (bar) bar.style.width = p + '%';
-
-        if (p >= 100) {
-            clearInterval(interval);
-            const splash = document.getElementById('splash-screen');
-            if (splash) {
-                splash.style.opacity = '0';
-                setTimeout(() => {
-                    splash.style.display = 'none';
-                    const app = document.getElementById('app');
-                    if (app) app.style.opacity = '1';
-
-                    // Trigger map resize if hidden to avoid gray tiles
-                    window.dispatchEvent(new Event('resize'));
-                }, 600);
-            }
-        }
-    }, 30);
-}
 
 /**
  * UI UTILITIES
@@ -311,6 +353,31 @@ function addFiles(newFiles) {
         }
     });
     renderFileList();
+
+    // Call Preview API for first file
+    if (autoLaboFiles.length > 0 && window.pywebview && window.pywebview.api) {
+        window.pywebview.api.preview_autolabo_file(autoLaboFiles[0])
+            .then(preview => {
+                const card = document.getElementById('preview-card');
+                if (card && preview) {
+                    document.getElementById('preview-samples').innerText = preview.samples || '-';
+                    document.getElementById('preview-params').innerText = preview.parameters || '-';
+                    document.getElementById('preview-provider').innerText = (preview.provider_guess || 'inconnu').toUpperCase();
+                    card.style.display = 'block';
+                }
+            })
+            .catch(err => {
+                console.warn('Preview failed:', err);
+                // Show error state in preview card
+                const card = document.getElementById('preview-card');
+                if (card) {
+                    document.getElementById('preview-samples').innerText = '?';
+                    document.getElementById('preview-params').innerText = '?';
+                    document.getElementById('preview-provider').innerText = 'ERREUR';
+                    card.style.display = 'block';
+                }
+            });
+    }
 }
 
 window.removeFile = function (index) {
@@ -321,11 +388,13 @@ window.removeFile = function (index) {
 function renderFileList() {
     const list = document.getElementById('file-list');
     const count = document.getElementById('file-count'); // Unused in new TPL?
-    const btn = document.getElementById('btn-process-autolabo');
+    const btnProcess = document.getElementById('btn-process-autolabo');
+    const btnPreview = document.getElementById('btn-preview-autolabo');
 
     if (!list) return;
 
-    if (btn) btn.disabled = autoLaboFiles.length === 0;
+    if (btnProcess) btnProcess.disabled = autoLaboFiles.length === 0;
+    if (btnPreview) btnPreview.disabled = autoLaboFiles.length === 0;
 
     if (autoLaboFiles.length === 0) {
         list.innerHTML = `<div style="text-align: center; padding: 20px; opacity: 0.5;">Aucun fichier</div>`;
@@ -393,7 +462,15 @@ window.runAutoLabo = function () {
     const modelId = modelSelect ? modelSelect.value : 'es';
     addLog(`📋 Matrice: ${modelId === 'es' ? 'Eaux Souterraines' : modelId === 'sols' ? 'Sols' : 'Eaux de Surface'}`);
 
-    window.pywebview.api.run_autolabo_process(autoLaboFiles, modelId, targetPath, providerId)
+    // Prepare Options
+    const options = {};
+    if (activeRegulatoryHeaders.size > 0 || currentPreviewHeaders.length > 0) {
+        options.active_headers = Array.from(activeRegulatoryHeaders);
+        addLog(`🔧 Options: ${options.active_headers.length} colonnes réglem. actives`);
+    }
+
+    // Call new function name
+    window.pywebview.api.process_autolabo(autoLaboFiles, modelId, targetPath, providerId, JSON.stringify(options))
         .then(res => {
             window.hideLoader();
             if (res.success) {
@@ -446,4 +523,263 @@ window.openAutoLaboFolder = function (filePath) {
     if (window.pywebview && window.pywebview.api) {
         window.pywebview.api.open_folder(filePath);
     }
+};
+
+/**
+ * CUSTOM RULES EDITOR
+ */
+window.openRulesEditor = function () {
+    const modal = document.getElementById('rules-modal');
+    const matrixSelect = document.getElementById('matrix-select');
+    const label = document.getElementById('rules-matrix-label');
+
+    if (modal && matrixSelect) {
+        const matrix = matrixSelect.value;
+        if (label) label.innerText = matrix === 'es' ? 'Eaux Souterraines' : (matrix === 'sols' ? 'Sols' : matrix);
+        modal.style.display = 'flex';
+        loadRules(matrix);
+    }
+}
+
+window.closeRulesEditor = function () {
+    const modal = document.getElementById('rules-modal');
+    if (modal) modal.style.display = 'none';
+}
+
+function loadRules(matrix) {
+    const list = document.getElementById('rules-list');
+    if (!list) return;
+
+    list.innerHTML = '<div style="text-align:center; color:#64748b; margin-top:20px;">Chargement...</div>';
+
+    if (window.pywebview && window.pywebview.api) {
+        window.pywebview.api.get_custom_rules(matrix).then(rules => {
+            renderRules(rules, matrix);
+        });
+    }
+}
+
+function renderRules(rules, matrix) {
+    const list = document.getElementById('rules-list');
+    if (!list) return;
+
+    list.innerHTML = '';
+
+    // Check if empty
+    if (!rules || Object.keys(rules).length === 0) {
+        list.innerHTML = '<div style="text-align: center; color: #64748b; margin-top: 50px;">Aucune règle personnalisée.</div>';
+        return;
+    }
+
+    // Sort parameters alphabetically
+    const params = Object.keys(rules).sort();
+
+    params.forEach(param => {
+        const specs = rules[param];
+        Object.keys(specs).forEach(col => {
+            const val = specs[col];
+            const div = document.createElement('div');
+            div.className = 'rule-item';
+            div.innerHTML = `
+                <div style="font-weight:600; color:#e2e8f0;">${param}</div>
+                <div style="color:#94a3b8;">${col}</div>
+                <div style="color:#38bdf8; font-family:monospace;">${val}</div>
+                <div class="delete-rule" onclick="deleteRule('${matrix}', '${param}')">×</div>
+            `;
+            list.appendChild(div);
+        });
+    });
+}
+
+window.addRule = function () {
+    const paramInput = document.getElementById('rule-param');
+    const colSelect = document.getElementById('rule-col');
+    const valInput = document.getElementById('rule-value');
+    const matrixSelect = document.getElementById('matrix-select');
+
+    if (!paramInput || !colSelect || !valInput || !matrixSelect) return;
+
+    const param = paramInput.value.trim();
+    const col = colSelect.value;
+    const val = valInput.value;
+    const matrix = matrixSelect.value;
+
+    if (!param || !val) {
+        window.showToast('error', 'Veuillez remplir tous les champs');
+        return;
+    }
+
+    if (window.pywebview && window.pywebview.api) {
+        window.pywebview.api.set_custom_rule(matrix, param, col, parseFloat(val)).then(success => {
+            if (success) {
+                window.showToast('success', 'Règle ajoutée !');
+                paramInput.value = '';
+                valInput.value = '';
+                loadRules(matrix);
+            } else {
+                window.showToast('error', 'Erreur lors de l\'enregistrement');
+            }
+        });
+    }
+}
+
+
+// AutoLabo: Toggle Preview Mode
+// AutoLabo: Toggle Preview Mode
+window.togglePreviewMode = function (show) {
+    const viewDrop = document.getElementById('view-drop-mode');
+    const viewPreview = document.getElementById('view-preview-mode');
+
+    if (viewDrop && viewPreview) {
+        viewDrop.style.display = show ? 'none' : 'flex';
+        viewPreview.style.display = show ? 'flex' : 'none';
+
+        // Show/Hide config panel
+        const configPanel = document.getElementById('preview-config-panel');
+        if (configPanel) configPanel.style.display = show ? 'block' : 'none';
+    }
+};
+
+// Globals for Preview State
+let currentPreviewHeaders = [];
+let activeRegulatoryHeaders = new Set();
+
+// AutoLabo: Run Detailed Preview
+window.runPreview = function () {
+    if (autoLaboFiles.length === 0) return;
+
+    // Use first file for now
+    const file = autoLaboFiles[0];
+
+    const providerSelect = document.getElementById('provider-select');
+    const providerId = providerSelect ? providerSelect.value : 'auto';
+
+    const modelSelect = document.getElementById('matrix-select');
+    const modelId = modelSelect ? modelSelect.value : 'es';
+
+    window.showLoader("Analyse en cours...");
+
+    window.pywebview.api.analyze_preview(file, modelId, providerId)
+        .then(res => {
+            window.hideLoader();
+            if (res.success) {
+                // res.data is now { rows: [], regulatory_headers: [] }
+                // Or if old format, handle it? Python changes are done.
+
+                // Store headers
+                currentPreviewHeaders = res.data.regulatory_headers || [];
+                // Reset active headers to all
+                activeRegulatoryHeaders = new Set(currentPreviewHeaders.map(h => h.id));
+
+                renderPreviewTable(res.data.rows);
+                togglePreviewMode(true);
+
+                // Update provider if auto-detected
+                if (res.provider && providerSelect && providerId === 'auto') {
+                    providerSelect.value = res.provider.toLowerCase();
+                    // Update label manually if needed, but select change usually enough?
+                    // Need to trigger change event if logic depends on it.
+                }
+            } else {
+                window.showToast('error', "Erreur Preview: " + res.error);
+            }
+        })
+        .catch(err => {
+            window.hideLoader();
+            window.showToast('error', "Err: " + err);
+        });
+};
+
+function renderPreviewTable(rows) {
+    const tbody = document.getElementById('preview-tbody');
+    const thead = document.getElementById('preview-thead');
+    const togglesContainer = document.getElementById('preview-header-toggles');
+
+    if (!tbody || !thead) return;
+
+    // 1. Render Toggles
+    if (togglesContainer) {
+        togglesContainer.innerHTML = '';
+        currentPreviewHeaders.forEach(h => {
+            const label = document.createElement('label');
+            label.style.cssText = 'display: flex; align-items: center; gap: 8px; cursor: pointer; background: rgba(0,0,0,0.2); padding: 5px 10px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.1); font-size: 0.85em;';
+            label.innerHTML = `
+                <input type="checkbox" checked onchange="toggleRegulatoryHeader(${h.id}, this.checked)">
+                <span style="color: ${h.color || '#fff'}">${h.title}</span>
+            `;
+            togglesContainer.appendChild(label);
+        });
+    }
+
+    // 2. Render Header
+    let headerHTML = `
+        <th style="padding: 12px;">Paramètre Brut</th>
+        <th style="padding: 12px;">Statut</th>
+        <th style="padding: 12px;">Paramètre Référentiel</th>
+    `;
+
+    // Dynamic headers
+    currentPreviewHeaders.forEach(h => {
+        headerHTML += `<th class="col-reg-${h.id}" style="padding: 12px; color: ${h.color || '#ccc'}; min-width: 100px;">${h.title}</th>`;
+    });
+
+    headerHTML += `<th style="padding: 12px; text-align: right;">Valeurs (Ech. 1)</th>`;
+    thead.innerHTML = `<tr style="background: rgba(255,255,255,0.05); text-align: left; color: #94a3b8;">${headerHTML}</tr>`;
+
+    // 3. Render Rows
+    tbody.innerHTML = '';
+    let hasData = false;
+
+    rows.forEach(row => {
+        // Filter out unmatched (requested by user)
+        // if (!row.matched) return;
+
+        hasData = true;
+        const tr = document.createElement('tr');
+        tr.style.borderBottom = '1px solid rgba(255,255,255,0.05)';
+
+        // Status Color
+        const statusColor = row.matched ? '#4ade80' : '#f87171';
+        const statusIcon = row.matched ? '✅ Trouvé' : '❌ Inconnu';
+
+        // Value (First Sample)
+        const val = (row.samples && row.samples.length > 0) ? row.samples[0].value : '-';
+
+        // Dynamic Regulatory Values
+        let regColsHTML = '';
+        currentPreviewHeaders.forEach(h => {
+            // row.regulatory_values is a dict mapping ID (int) to value
+            // But JSON keys are strings
+            const regVal = (row.regulatory_values && row.regulatory_values[String(h.id)]) || '-';
+            regColsHTML += `<td class="col-reg-${h.id}" style="padding: 12px; font-family: monospace; font-size: 0.9em;">${regVal}</td>`;
+        });
+
+        tr.innerHTML = `
+            <td style="padding: 12px; color: #f1f5f9; font-family: monospace;">${row.raw_name || '?'}</td>
+            <td style="padding: 12px; color: ${statusColor}; font-weight: 500;">${statusIcon}</td>
+            <td style="padding: 12px; color: var(--text-muted);">${row.ref_name || '-'}</td>
+            ${regColsHTML}
+            <td style="padding: 12px; text-align: right; font-family: monospace;">${val !== null ? val : ''}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+
+    if (!hasData) {
+        tbody.innerHTML = `<tr><td colspan="${4 + currentPreviewHeaders.length}" style="padding: 20px; text-align: center; color: var(--text-muted);">Aucun paramètre correspondant trouvé.</td></tr>`;
+    }
+}
+
+// Helper: Toggle Column Visibility
+window.toggleRegulatoryHeader = function (headerId, isChecked) {
+    if (isChecked) {
+        activeRegulatoryHeaders.add(headerId);
+    } else {
+        activeRegulatoryHeaders.delete(headerId);
+    }
+
+    // Toggle DOM Column visibility
+    const cells = document.querySelectorAll(`.col-reg-${headerId}`);
+    cells.forEach(el => {
+        el.style.display = isChecked ? 'table-cell' : 'none';
+    });
 };

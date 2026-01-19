@@ -1,5 +1,4 @@
 import pandas as pd
-import xlsxwriter
 import logging
 import os
 
@@ -7,16 +6,33 @@ logger = logging.getLogger(__name__)
 
 def generate_excel_for_layer(rows, layer_key, folder_path, config):
     try:
-        if not rows: 
+        if not rows:
             logger.warning(f"[Export] No rows for layer {layer_key}")
             return None
-        
+
         fname = f"{layer_key}.xlsx"
         full_path = os.path.join(folder_path, fname)
         logger.info(f"[Export] Generating {full_path} with {len(rows)} rows")
-        
+
         df = pd.DataFrame(rows)
-        
+
+        # --- SIS SPECIFIC LOGIC ---
+        if layer_key == "SIS":
+            # 1. Generate Fiche GéoRisques URL
+            # Url format: https://fiches-risques.brgm.fr/georisques/infosols/classification/{ID}
+            # We look for a field that looks like the ID (SSP...)
+            id_col = next((c for c in ['code_metier', 'code_ssp', 'id_ssp'] if c in df.columns), None)
+            if id_col:
+                base_url = "https://fiches-risques.brgm.fr/georisques/infosols/classification/"
+                df['fiche_georisques'] = df[id_col].apply(lambda x: f"{base_url}{x}" if x else None)
+
+            # 2. Exclude specific columns
+            sis_exclude = [
+                'id_classification', 'id_instruction', 'id_inventaire_classification', 
+                'date_ap', 'INSEE', 'date_saisie_commune', 'insee'
+            ]
+            df = df.drop(columns=[c for c in sis_exclude if c in df.columns], errors='ignore')
+
         rename_map = {
             "code_metier": "Référence",
             "code_ssp": "Référence",
@@ -25,6 +41,7 @@ def generate_excel_for_layer(rows, layer_key, folder_path, config):
             "etat": "Etat d'occupation du site",
             "activite_principale": "Activité",
             "fiche_risque": "Fiche GéoRisques",
+            "fiche_georisques": "Fiche GéoRisques", # Mapping new column
             "adresse": "Adresse",
             "code_postal": "Code Postal",
             "nom_commune": "Commune",
@@ -52,8 +69,8 @@ def generate_excel_for_layer(rows, layer_key, folder_path, config):
 
         cols_to_exclude = [
             # General exclusions
-            'nom_inventaire', 'code_inventaire', 'code_departement', 'nom_departement', 
-            'code_region', 'nom_region', 'nature_localisation', 'x_wgs84', 'y_wgs84', 
+            'nom_inventaire', 'code_inventaire', 'code_departement', 'nom_departement',
+            'code_region', 'nom_region', 'nature_localisation', 'x_wgs84', 'y_wgs84',
             'code_siret', 'geometry', 'LATITUDE_APPROX', 'LONGITUDE_APPROX', 'boundedBy', 'id',
             'activite', 'type_activite', 'position_relative',
             # BSS-specific exclusions
@@ -69,15 +86,15 @@ def generate_excel_for_layer(rows, layer_key, folder_path, config):
             'libelle', 'bassin_dce'
         ]
         df = df.drop(columns=[c for c in cols_to_exclude if c in df.columns], errors='ignore')
-        
+
         priority_cols = [
             # BSS priorités
-            "Code BSS", "Adresse", "Commune", "Nature de l'ouvrage", "Nappe captée",
+            "Code BSS", "Adresse", "Code Postal", "Commune", "Nature de l'ouvrage", "Nappe captée",
             "Niveau d'eau mesurée dans l'ouvrage", "Fiche Infoterre",
             "Distance / Position", "Amont / Aval (Topo)",
             # Autres couches
-            "Référence", "Etablissement / Adresse", "Code Postal",
-            "Etat d'occupation du site", "Activité",
+            "Référence", "Etablissement / Adresse",
+            "Etat d'occupation du site", "Activité", "Fiche GéoRisques",
             # IGN Priorités
             "Numéro Parcelle", "Section", "Commune (Admin)", "Usage Bâtiment", "Hauteur (m)", "Toponyme"
         ]
@@ -87,25 +104,25 @@ def generate_excel_for_layer(rows, layer_key, folder_path, config):
 
         writer = pd.ExcelWriter(full_path, engine='xlsxwriter')
         df.to_excel(writer, index=False, sheet_name='Données')
-        
+
         workbook = writer.book
         worksheet = writer.sheets['Données']
-        
+
         header_fmt = workbook.add_format({'bold': True, 'fg_color': '#005b9e', 'font_color': 'white', 'border': 1, 'text_wrap': True, 'valign': 'vcenter', 'align': 'center'})
         body_fmt = workbook.add_format({'border': 1, 'text_wrap': True, 'valign': 'vcenter', 'align': 'center'})
         center_fmt = workbook.add_format({'border': 1, 'text_wrap': True, 'valign': 'vcenter', 'align': 'center'})
         link_fmt = workbook.add_format({'color': 'blue', 'underline': 1, 'border': 1, 'valign': 'vcenter', 'align': 'center'})
-        
+
         warning_fmt = workbook.add_format({
             'border': 1, 'text_wrap': True, 'valign': 'vcenter', 'align': 'center',
-            'bg_color': '#fff9c4', 
-            'font_color': '#b45309' 
+            'bg_color': '#fff9c4',
+            'font_color': '#b45309'
         })
 
         for col_num, value in enumerate(df.columns.values):
             worksheet.write(0, col_num, value, header_fmt)
             width = 20
-            if "Etablissement" in str(value) or "Activité" in str(value) or "Adresse" in str(value): 
+            if "Etablissement" in str(value) or "Activité" in str(value) or "Adresse" in str(value):
                 width = 40
             if "Distance" in str(value): width = 30
             if "Amont" in str(value): width = 30
@@ -115,20 +132,20 @@ def generate_excel_for_layer(rows, layer_key, folder_path, config):
             for col_num in range(len(df.columns)):
                 col_name = df.columns[col_num]
                 val = df.iloc[row_num, col_num]
-                
+
                 if col_name == "Fiche GéoRisques" and pd.notnull(val) and str(val).startswith('http'):
                     worksheet.write_url(row_num + 1, col_num, val, link_fmt, string="Voir la fiche")
                 elif col_name == "Fiche Infoterre" and pd.notnull(val) and str(val).startswith('http'):
                     worksheet.write_url(row_num + 1, col_num, val, link_fmt, string="Voir Infoterre")
                 elif col_name in ["Référence", "Etat d'occupation du site", "Code Postal"]:
                     worksheet.write(row_num + 1, col_num, str(val) if pd.notnull(val) else "", center_fmt)
-                
+
                 elif col_name == "Amont / Aval (Topo)":
                         worksheet.write(row_num + 1, col_num, str(val) if pd.notnull(val) else "", warning_fmt)
-                
+
                 else:
                     worksheet.write(row_num + 1, col_num, str(val) if pd.notnull(val) else "", body_fmt)
-        
+
         writer.close()
         logger.info(f"[Export] SUCCESS - Created {full_path}")
         return fname

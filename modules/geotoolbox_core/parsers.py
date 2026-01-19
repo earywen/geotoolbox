@@ -6,9 +6,10 @@ def smart_fix_coords_france(lat, lon):
     try:
         val1 = float(lat)
         val2 = float(lon)
-    except: return None, None 
+    except (ValueError, TypeError):
+        return None, None
     if abs(val1) > 180 or abs(val2) > 180: return None, None
-    if (val1 < 20 and val2 > 35): return val2, val1 
+    if (val1 < 20 and val2 > 35): return val2, val1
     return val1, val2
 
 def parse_gml_coord_string(text, is_poslist=False, dimension_hint=2):
@@ -24,13 +25,14 @@ def parse_gml_coord_string(text, is_poslist=False, dimension_hint=2):
                     lat, lon = smart_fix_coords_france(tokens[i+1], tokens[i])
                     if lat is not None: points.append([lon, lat])
         else:
-            tuples = text.strip().split() 
+            tuples = text.strip().split()
             for t in tuples:
                 coords = t.split(',')
                 if len(coords) >= 2:
                     lat, lon = smart_fix_coords_france(coords[1], coords[0])
                     if lat is not None: points.append([lon, lat])
-    except: pass
+    except Exception:
+        pass
     return points
 
 def parse_geometry_hybrid(element):
@@ -62,7 +64,7 @@ def parse_geometry_hybrid(element):
                          dim = 2
                          if 'srsDimension="3"' in str(ET.tostring(p_tag)) or len(p_tag.text.split()) % 3 == 0: dim = 3
                          l_pts = parse_gml_coord_string(p_tag.text, is_poslist=True, dimension_hint=dim)
-                
+
                 if l_pts:
                     geojson_lines.append(l_pts)
                     all_line_points.extend(l_pts)
@@ -77,7 +79,7 @@ def parse_geometry_hybrid(element):
         # -----------------------------------------------
 
         polys_tags = element.findall(".//Polygon") + element.findall(".//PolygonPatch")
-        all_polygons_geojson = [] 
+        all_polygons_geojson = []
         all_points_flat = []
 
         for poly in polys_tags:
@@ -113,7 +115,8 @@ def parse_geometry_hybrid(element):
         avg_lon = sum(p[0] for p in all_points_flat) / len(all_points_flat)
         avg_lat = sum(p[1] for p in all_points_flat) / len(all_points_flat)
         return {"type": "MultiPolygon", "coordinates": all_polygons_geojson}, avg_lat, avg_lon
-    except: return None, 0, 0
+    except Exception:
+        return None, 0, 0
 
 def parse_gml_response(xml_text):
     rows = []
@@ -121,9 +124,9 @@ def parse_gml_response(xml_text):
         xml_content = re.sub(r'(</?)[a-zA-Z0-9]+:', r'\1', xml_text)
         root = ET.fromstring(xml_content)
         features = root.findall(".//featureMember") + root.findall(".//member")
-        
+
         for feature in features:
-            if len(list(feature)) == 0: continue 
+            if len(list(feature)) == 0: continue
             obj = list(feature)[0]
             props = {}
             geojson_geom, lat_center, lon_center = parse_geometry_hybrid(obj)
@@ -132,9 +135,9 @@ def parse_gml_response(xml_text):
                 tag_raw = child.tag
                 if '}' in tag_raw:
                     tag_raw = tag_raw.split('}', 1)[1]
-                
+
                 tag_clean = tag_raw.lower().strip()
-                
+
                 if "geometry" not in tag_clean and "boundedby" not in tag_clean:
                     if child.text: props[tag_clean] = child.text.strip()
             if geojson_geom:
@@ -143,7 +146,7 @@ def parse_gml_response(xml_text):
                 props['LONGITUDE_APPROX'] = lon_center
                 if "code_bss" in props: props["bss_id"] = props["code_bss"]
                 if "code_ssp" in props: props["id"] = props["code_ssp"]
-                
+
                 # --- FORMATAGE SPÉCIFIQUE PARCELLES ---
                 if "section" in props and "numero" in props:
                     lbl = f"Section {props['section']} n°{props['numero']}"
