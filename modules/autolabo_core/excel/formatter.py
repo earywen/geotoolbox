@@ -159,6 +159,7 @@ class ExcelFormatter:
         reg_headers = self.config.regulatory_headers
 
         c_name_idx = str(cols.name)
+        c_raw_name_idx = str(cols.raw_name_col) if cols.raw_name_col is not None else c_name_idx
         c_unit_idx = str(cols.unit)
         c_family_idx = str(cols.family) if cols.family else None
 
@@ -177,10 +178,10 @@ class ExcelFormatter:
             # Get parameter name
             p_name = row.get(f"{c_name_idx}_REF")
             if pd.isna(p_name):
-                # Try raw col (likely suffixed)
-                p_name = row.get(f"{c_name_idx}_RAW")
+                # Try raw col (likely suffixed) using specific raw col index if defined
+                p_name = row.get(f"{c_raw_name_idx}_RAW")
                 if pd.isna(p_name):
-                    p_name = row.get(c_name_idx)
+                    p_name = row.get(c_raw_name_idx)
 
             # Get unit
             p_unit = row.get(f"{c_unit_idx}_REF")
@@ -200,9 +201,17 @@ class ExcelFormatter:
             if pd.isna(p_name):
                 continue
 
-            # Family header check
+            # Family header check - must have no unit AND be a valid non-numeric name
+            # Skip rows with numeric-only names (e.g., "0", "1", "2") as these are likely 
+            # parameters with short names, not section headers
             if pd.isna(p_unit) or str(p_unit).strip() == "":
-                pending_family_header = str(p_name)
+                name_str = str(p_name).strip()
+                # Only treat as family header if:
+                # 1. Name is not purely numeric
+                # 2. Name is longer than 2 characters (real family names are descriptive)
+                is_numeric_only = name_str.replace('.', '').replace('-', '').replace(',', '').isdigit()
+                if not is_numeric_only and len(name_str) > 2:
+                    pending_family_header = name_str
                 continue
 
             # Check if row has data

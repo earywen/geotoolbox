@@ -194,6 +194,9 @@ class BurgeaplyApi:
             provider_id: Laboratory provider ID (agrolab, eurofins)
             options: Optional processing options (passed as JSON string or dict)
         """
+        # DEBUG: Log immediately on entry to trace pywebview issues
+        logging.info(f"APP: process_autolabo ENTRY - files={file_paths}, model={model_id}, provider={provider_id}, options_type={type(options)}")
+        
         # Handle options (JSON string from JS to avoid pywebview kwarg unpacking)
         final_options = {}
         
@@ -248,7 +251,10 @@ class BurgeaplyApi:
             Dict with success, data (list of rows), or error.
         """
         try:
-            return autolabo.analyze_preview(file_path, model_id, provider_id)
+            logging.info(f"APP: analyze_preview ENTRY - file={file_path}, model={model_id}, provider={provider_id}")
+            result = autolabo.analyze_preview(file_path, model_id, provider_id)
+            logging.info(f"APP: analyze_preview EXIT - success={result.get('success', False)}")
+            return result
         except Exception as e:
             logging.error(f"Analyze Preview Error: {e}")
             return {"success": False, "error": str(e)}

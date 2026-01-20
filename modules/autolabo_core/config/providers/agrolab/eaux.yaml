@@ -28,6 +28,7 @@ columns:
   unit: 5           # Unit column
   family: 1         # Family/short name column
   raw_code_col: 2   # Code column in RAW file (different from REF!)
+  raw_name_col: 0   # Name column in RAW file (different from REF col 4!)
 
 # Regulatory columns and headers (from REF file row 1)
 regulatory_cols: [6, 7, 8, 9]

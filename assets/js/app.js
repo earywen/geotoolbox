@@ -451,10 +451,17 @@ window.runAutoLabo = function () {
 
     window.showLoader("Traitement de " + autoLaboFiles.length + " fichier(s)...");
 
-    // Get provider
+    // Get provider with defensive null checks
     const providerSelect = document.getElementById('provider-select');
-    const providerId = providerSelect ? providerSelect.value : 'agrolab';
-    const providerName = providerSelect ? providerSelect.options[providerSelect.selectedIndex].text : 'AGROLAB';
+    // Default to 'auto' if empty or not found - Python will auto-detect
+    let providerId = 'auto';
+    if (providerSelect && providerSelect.value && providerSelect.value.trim() !== '') {
+        providerId = providerSelect.value;
+    }
+    let providerName = 'AGROLAB';
+    if (providerSelect && providerSelect.selectedIndex >= 0 && providerSelect.options[providerSelect.selectedIndex]) {
+        providerName = providerSelect.options[providerSelect.selectedIndex].text;
+    }
     addLog(`🧪 Laboratoire: ${providerName}`);
 
     // Get matrix
@@ -462,16 +469,49 @@ window.runAutoLabo = function () {
     const modelId = modelSelect ? modelSelect.value : 'es';
     addLog(`📋 Matrice: ${modelId === 'es' ? 'Eaux Souterraines' : modelId === 'sols' ? 'Sols' : 'Eaux de Surface'}`);
 
-    // Prepare Options
-    const options = {};
-    if (activeRegulatoryHeaders.size > 0 || currentPreviewHeaders.length > 0) {
-        options.active_headers = Array.from(activeRegulatoryHeaders);
-        addLog(`🔧 Options: ${options.active_headers.length} colonnes réglem. actives`);
+    // Prepare Options with defensive handling
+    let options = {};
+    try {
+        // Convert Set to Array safely, ensuring numeric values
+        if (activeRegulatoryHeaders && activeRegulatoryHeaders.size > 0) {
+            // Ensure all values are integers
+            const headersArray = Array.from(activeRegulatoryHeaders).map(h => parseInt(h, 10)).filter(h => !isNaN(h));
+            if (headersArray.length > 0) {
+                options.active_headers = headersArray;
+                addLog(`🔧 Options: ${headersArray.length} colonnes réglem. actives`);
+            }
+        }
+    } catch (optErr) {
+        console.error('[AutoLabo] Error preparing options:', optErr);
+        addLog(`⚠️ Erreur options: ${optErr.message}`);
     }
 
-    // Call new function name
-    window.pywebview.api.process_autolabo(autoLaboFiles, modelId, targetPath, providerId, JSON.stringify(options))
+    // Serialize options safely
+    let optionsJson = '{}';
+    try {
+        optionsJson = JSON.stringify(options);
+        console.log('[AutoLabo] Calling process_autolabo with options:', optionsJson);
+    } catch (jsonErr) {
+        console.error('[AutoLabo] JSON stringify error:', jsonErr);
+        addLog(`⚠️ Erreur sérialisation: ${jsonErr.message}`);
+        optionsJson = '{}';
+    }
+
+    // Call API with explicit error handling and timeout
+    console.log('[AutoLabo] Sending request to Python...');
+    addLog('📡 Envoi de la requête...');
+
+    // Create timeout promise (60 seconds)
+    const timeout = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Timeout: Le traitement a pris trop de temps (60s)')), 60000);
+    });
+
+    // Race between API call and timeout
+    const apiCall = window.pywebview.api.process_autolabo(autoLaboFiles, modelId, targetPath, providerId, optionsJson);
+
+    Promise.race([apiCall, timeout])
         .then(res => {
+            console.log('[AutoLabo] Response received:', res);
             window.hideLoader();
             if (res.success) {
                 addLog('✅ Rapport généré avec succès !');
@@ -497,14 +537,22 @@ window.runAutoLabo = function () {
                     }
                 }
                 window.showToast('success', "Rapport généré !");
+
+                // Reset state
                 autoLaboFiles = [];
                 renderFileList();
+
+                // Reset preview state to avoid stale data
+                togglePreviewMode(false);
+                currentPreviewHeaders = [];
+                activeRegulatoryHeaders = new Set();
             } else {
                 addLog(`❌ Erreur: ${res.error}`);
                 window.showToast('error', "Erreur: " + res.error);
             }
         })
         .catch(err => {
+            console.error('[AutoLabo] API call failed:', err);
             window.hideLoader();
             addLog(`❌ Erreur Backend: ${err}`);
             window.showToast('error', "Erreur Backend: " + err);
@@ -651,11 +699,15 @@ window.runPreview = function () {
     // Use first file for now
     const file = autoLaboFiles[0];
 
+    // Get provider with defensive null checks - default to 'auto' for auto-detection
     const providerSelect = document.getElementById('provider-select');
-    const providerId = providerSelect ? providerSelect.value : 'auto';
+    let providerId = 'auto';
+    if (providerSelect && providerSelect.value && providerSelect.value.trim() !== '') {
+        providerId = providerSelect.value;
+    }
 
     const modelSelect = document.getElementById('matrix-select');
-    const modelId = modelSelect ? modelSelect.value : 'es';
+    const modelId = modelSelect && modelSelect.value ? modelSelect.value : 'es';
 
     window.showLoader("Analyse en cours...");
 

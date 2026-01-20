@@ -2,7 +2,7 @@
     "app": {
         "log_level": "INFO",
         "log_file": "burgeaply.log",
-        "debug": false
+        "debug": true
     },
     "network": {
         "verify_ssl": true,

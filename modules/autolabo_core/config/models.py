@@ -57,6 +57,10 @@ class ColumnMapping(BaseModel):
         default=None,
         description="Indice de la colonne code dans le fichier RAW (si différent du code REF)"
     )
+    raw_name_col: Optional[int] = Field(
+        default=None,
+        description="Indice de la colonne nom dans le fichier RAW (si différent du nom REF)"
+    )
 
 
 class ParsingConfig(BaseModel):
