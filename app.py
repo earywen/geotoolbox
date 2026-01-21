@@ -140,10 +140,9 @@ class BurgeaplyApi:
         # Context7 recommends validation here ideally
         return geotoolbox.run_preview_logic(bbox, layers)
 
-    def run_export(self, bbox: Dict[str, float], layers: List[str], folder: str, path: str) -> Dict[str, Any]:
-        """Proxy for Geotoolbox Export Logic"""
-        # Using default CoreEventReporter for now, but fully decoupled via Protocol
-        return geotoolbox.run_export_logic(bbox, layers, folder, path)
+    def run_export(self, bbox: Dict[str, float], layers: List[str], folder: str, path: str, export_qgis: bool = False) -> Dict[str, Any]:
+        """Proxy for Geotoolbox Export Logic. Optionally creates QGIS project."""
+        return geotoolbox.run_export_logic(bbox, layers, folder, path, export_qgis=export_qgis)
 
     def run_save_map(self, b64: str, path: str) -> Optional[str]:
         """Proxy for saving map images"""

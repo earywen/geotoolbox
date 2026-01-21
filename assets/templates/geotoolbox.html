@@ -167,7 +167,7 @@
                         style="display:flex; justify-content:space-between; margin-bottom:5px; font-size:12px; font-weight:600;">
                         <label>Rayon</label> <span id="radiusDisplay" class="text-accent">500 m</span>
                     </div>
-                    <input type="range" id="radiusInput" min="100" max="2000" step="100" value="500"
+                    <input type="range" id="radiusInput" min="100" max="10000" step="100" value="500"
                         style="width:100%; accent-color: var(--accent);" oninput="updateRadius()">
                 </div>
             </div>
@@ -204,6 +204,13 @@
                         </select>
                         <button class="btn-icon-input" onclick="geo_exportMap()">📸</button>
                     </div>
+                </div>
+
+                <!-- EXPORT SIG (GeoJSON) -->
+                <div class="checkbox-wrapper"
+                    style="margin-bottom: 15px; background: rgba(34, 197, 94, 0.15); border: 1px solid rgba(34, 197, 94, 0.3);">
+                    <input type="checkbox" id="exportQgis">
+                    <label for="exportQgis" style="color: #22c55e;">🗺️ Exporter couches SIG (GeoJSON)</label>
                 </div>
 
                 <div style="display: grid; grid-template-columns: 1fr; gap: 10px;">

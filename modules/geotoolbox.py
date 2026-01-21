@@ -129,7 +129,14 @@ def _perform_global_analysis(bbox: Dict[str, float], reporter: Optional[Progress
     
     return slope_azimut, z_center
 
-def _process_layer_export(layer_key: str, bbox: Dict[str, float], slope_azimut: float, z_center: float, path: str) -> Dict[str, Any]:
+def _process_layer_export(
+    layer_key: str, 
+    bbox: Dict[str, float], 
+    slope_azimut: float, 
+    z_center: float, 
+    path: str,
+    export_qgis: bool = False
+) -> Dict[str, Any]:
     """Processes a single layer for export."""
     config = LAYERS_CONFIG.get(layer_key)
     if not config:
@@ -141,21 +148,49 @@ def _process_layer_export(layer_key: str, bbox: Dict[str, float], slope_azimut: 
         if rows and layer_key != "PARCELLE":
              rows = calculate_geometrics(rows, bbox, slope_azimut, z_center)
 
+        # Excel export (always)
         fname = generate_excel_for_layer(rows, layer_key, path, config)
+        
+        # GeoJSON export (if QGIS export enabled)
+        geojson_path = None
+        if export_qgis and rows:
+            from modules.qgis_export import export_geojson
+            vecteurs_dir = os.path.join(path, "vecteurs")
+            os.makedirs(vecteurs_dir, exist_ok=True)
+            geojson_path = os.path.join(vecteurs_dir, f"{layer_key}.geojson")
+            export_geojson(rows, geojson_path, layer_key)
+        
         if fname:
-            return {"status": "success", "layer": config['label'], "count": len(rows), "filename": fname}
+            return {
+                "status": "success", 
+                "layer": config['label'], 
+                "count": len(rows), 
+                "filename": fname,
+                "geojson": geojson_path
+            }
         return {"status": "empty", "layer": config['label']}
         
     except Exception as e:
+        import traceback
         logging.error(f"Error exporting layer {layer_key}: {e}")
-        return {"status": "error", "layer": config.get('label', layer_key), "error": str(e)}
+        logging.error(traceback.format_exc())
+        return {"status": "error", "layer": config.get('label', layer_key) if config else layer_key, "error": str(e)}
 
-def run_export_logic(bbox: Dict[str, float], layers_list: List[str], folder_name: Optional[str], base_path_ui: Optional[str], reporter: Optional[ProgressReporter] = None) -> Dict[str, Any]:
+def run_export_logic(
+    bbox: Dict[str, float], 
+    layers_list: List[str], 
+    folder_name: Optional[str], 
+    base_path_ui: Optional[str], 
+    reporter: Optional[ProgressReporter] = None,
+    export_qgis: bool = False
+) -> Dict[str, Any]:
     """
     Executes the full export logic: fetching, geometric analysis (slope, elevation), and Excel generation.
+    Optionally creates GeoJSON files and a QGIS project.
     """
     path = _prepare_export_directory(folder_name, base_path_ui)
     summary: List[Dict[str, Any]] = []
+    geojson_paths: List[str] = []
 
     if reporter is None:
         reporter = CoreEventReporter()
@@ -165,7 +200,7 @@ def run_export_logic(bbox: Dict[str, float], layers_list: List[str], folder_name
     
     slope_azimut, z_center = _perform_global_analysis(bbox, reporter)
 
-    # --- ETAPE 2 : BOUCLE SUR LES COUCHES (10-100%) ---
+    # --- ETAPE 2 : BOUCLE SUR LES COUCHES (10-90%) ---
     total_layers = len(layers_list)
 
     for i, layer_key in enumerate(layers_list):
@@ -173,24 +208,33 @@ def run_export_logic(bbox: Dict[str, float], layers_list: List[str], folder_name
         if not config:
             continue
 
-        progress_start = 10 + int((i / total_layers) * 90)
+        progress_start = 10 + int((i / total_layers) * 80)
         msg = f"Traitement {config['label']}..."
         reporter.update(progress_start, msg)
 
-        # Additional UI update simulation if we wanted to be exact, but simplifying for readability
         reporter.update(progress_start + 5, f"Calculs géométriques {config['label']}...")
         reporter.update(progress_start + 8, 'Génération Excel...')
 
-        result = _process_layer_export(layer_key, bbox, slope_azimut, z_center, path)
+        result = _process_layer_export(layer_key, bbox, slope_azimut, z_center, path, export_qgis)
         if result['status'] == 'success':
             summary.append(result)
+            if result.get('geojson'):
+                geojson_paths.append(result['geojson'])
         elif result['status'] == 'error':
-             summary.append(result) # We might want to show errors in summary too
+             summary.append(result)
+
+    # Log GeoJSON exports if any
+    if export_qgis and geojson_paths:
+        logging.info(f"Couches SIG créées: {len(geojson_paths)} fichiers GeoJSON")
 
     reporter.update(100, 'Export terminé !')
     time.sleep(0.5)
 
-    return {"folder": path, "summary": summary}
+    return {
+        "folder": path, 
+        "summary": summary,
+        "geojson_count": len(geojson_paths) if export_qgis else 0
+    }
 
 def save_map_image(base64_str: str, folder_path: str) -> Optional[str]:
     """Decodes a Base64 image string and saves it to the specified folder."""

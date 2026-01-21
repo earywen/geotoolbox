@@ -197,6 +197,12 @@ class GeotoolboxManager {
             return;
         }
 
+        // Validate bbox exists
+        if (!b || !b.min_lat) {
+            if (window.showToast) window.showToast('error', "Cliquez sur la carte pour définir un point");
+            return;
+        }
+
         if (mode === 'preview') {
             if (window.showLoader) window.showLoader("Chargement...");
 
@@ -223,8 +229,12 @@ class GeotoolboxManager {
 
             if (window.showLoader) window.showLoader("Export Data...");
 
+            // Check QGIS export option
+            const qgisCheckbox = document.getElementById('exportQgis');
+            const exportQgis = qgisCheckbox ? qgisCheckbox.checked : false;
+
             try {
-                const res = await window.pywebview.api.run_export(b, l, null, folder);
+                const res = await window.pywebview.api.run_export(b, l, null, folder, exportQgis);
                 if (window.hideLoader) window.hideLoader();
                 if (window.showToast) window.showToast('success', "Export Terminé");
 

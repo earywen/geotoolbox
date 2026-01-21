@@ -42,8 +42,8 @@ def ensure_folder(path: Optional[str]) -> str:
     os.makedirs(path, exist_ok=True)
     return path
 
-def download_wms(layer_name: str, filename: str, bbox: str) -> str:
-    """Downloads a WMS tile for the given layer and bbox."""
+def download_wms(layer_name: str, filename: str, bbox: str, bbox_dict: Optional[Dict[str, float]] = None) -> str:
+    """Downloads a WMS tile for the given layer and bbox. Generates world file if bbox_dict provided."""
     wms_base = core.CONFIG.get('orthohisto', {}).get('wms_url')
     # Use 2500x2500 for good resolution
     url = (f"{wms_base}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&FORMAT=image/png"
@@ -62,7 +62,19 @@ def download_wms(layer_name: str, filename: str, bbox: str) -> str:
 
             with open(filename, 'wb') as f:
                 f.write(r.content)
-            logging.info(f"[Mosaïque] {layer_name} -> OK")
+            
+            # Generate world file for georeferencing
+            if bbox_dict:
+                try:
+                    from modules.qgis_export.worldfile_writer import create_world_file, create_prj_file, EPSG_WEB_MERCATOR
+                    create_world_file(filename, bbox_dict, 2500, 2500, target_crs=EPSG_WEB_MERCATOR)
+                    create_prj_file(filename, epsg=EPSG_WEB_MERCATOR)
+                    logging.info(f"[Mosaïque] {layer_name} -> OK (géoréférencé EPSG:3857)")
+                except Exception as e:
+                    logging.warning(f"[Mosaïque] World file failed for {layer_name}: {e}")
+            else:
+                logging.info(f"[Mosaïque] {layer_name} -> OK")
+            
             return "OK"
         else:
             logging.error(f"[Mosaïque] Erreur HTTP {r.status_code} pour {layer_name}")
@@ -268,6 +280,14 @@ def run_full_process(lat: float, lon: float, radius_m: int, folder_path_input: O
     delta_lon = delta_lat / cos_lat
 
     wms_bbox = f"{lat-delta_lat},{lon-delta_lon},{lat+delta_lat},{lon+delta_lon}"
+    
+    # Create bbox dict for georeferencing
+    bbox_dict = {
+        'min_lat': lat - delta_lat,
+        'max_lat': lat + delta_lat,
+        'min_lon': lon - delta_lon,
+        'max_lon': lon + delta_lon
+    }
 
     total_mos = len(IGN_MOSAICS)
     step_mos = 50.0 / total_mos
@@ -276,7 +296,7 @@ def run_full_process(lat: float, lon: float, radius_m: int, folder_path_input: O
         futures: Dict[Future, str] = {}
         for label, layer in IGN_MOSAICS:
             fname = os.path.join(folder_path, f"{label}.png")
-            futures[executor.submit(download_wms, layer, fname, wms_bbox)] = label
+            futures[executor.submit(download_wms, layer, fname, wms_bbox, bbox_dict)] = label
 
         done_count = 0
         for f in as_completed(futures):
