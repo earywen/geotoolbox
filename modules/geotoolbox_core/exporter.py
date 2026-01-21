@@ -128,23 +128,34 @@ def generate_excel_for_layer(rows, layer_key, folder_path, config):
             if "Amont" in str(value): width = 30
             worksheet.set_column(col_num, col_num, width)
 
-        for row_num in range(len(df)):
-            for col_num in range(len(df.columns)):
-                col_name = df.columns[col_num]
-                val = df.iloc[row_num, col_num]
-
-                if col_name == "Fiche GéoRisques" and pd.notnull(val) and str(val).startswith('http'):
-                    worksheet.write_url(row_num + 1, col_num, val, link_fmt, string="Voir la fiche")
-                elif col_name == "Fiche Infoterre" and pd.notnull(val) and str(val).startswith('http'):
-                    worksheet.write_url(row_num + 1, col_num, val, link_fmt, string="Voir Infoterre")
-                elif col_name in ["Référence", "Etat d'occupation du site", "Code Postal"]:
-                    worksheet.write(row_num + 1, col_num, str(val) if pd.notnull(val) else "", center_fmt)
-
-                elif col_name == "Amont / Aval (Topo)":
-                        worksheet.write(row_num + 1, col_num, str(val) if pd.notnull(val) else "", warning_fmt)
-
+        # Performance: Pre-compute column info and special column indices
+        columns_list = df.columns.tolist()
+        special_cols = {
+            'georisques_idx': columns_list.index("Fiche GéoRisques") if "Fiche GéoRisques" in columns_list else -1,
+            'infoterre_idx': columns_list.index("Fiche Infoterre") if "Fiche Infoterre" in columns_list else -1,
+            'hydro_idx': columns_list.index("Amont / Aval (Topo)") if "Amont / Aval (Topo)" in columns_list else -1,
+        }
+        center_cols = {"Référence", "Etat d'occupation du site", "Code Postal"}
+        center_col_indices = {columns_list.index(c) for c in center_cols if c in columns_list}
+        
+        # Performance: Use to_dict('records') for faster iteration
+        records = df.to_dict('records')
+        
+        for row_num, row_data in enumerate(records):
+            for col_num, col_name in enumerate(columns_list):
+                val = row_data.get(col_name)
+                excel_row = row_num + 1  # Excel is 1-indexed for data rows
+                
+                if col_num == special_cols['georisques_idx'] and pd.notnull(val) and str(val).startswith('http'):
+                    worksheet.write_url(excel_row, col_num, val, link_fmt, string="Voir la fiche")
+                elif col_num == special_cols['infoterre_idx'] and pd.notnull(val) and str(val).startswith('http'):
+                    worksheet.write_url(excel_row, col_num, val, link_fmt, string="Voir Infoterre")
+                elif col_num in center_col_indices:
+                    worksheet.write(excel_row, col_num, str(val) if pd.notnull(val) else "", center_fmt)
+                elif col_num == special_cols['hydro_idx']:
+                    worksheet.write(excel_row, col_num, str(val) if pd.notnull(val) else "", warning_fmt)
                 else:
-                    worksheet.write(row_num + 1, col_num, str(val) if pd.notnull(val) else "", body_fmt)
+                    worksheet.write(excel_row, col_num, str(val) if pd.notnull(val) else "", body_fmt)
 
         writer.close()
         logger.info(f"[Export] SUCCESS - Created {full_path}")

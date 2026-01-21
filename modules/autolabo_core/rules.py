@@ -22,6 +22,7 @@ class RuleManager:
     
     def __init__(self):
         self._rules: Dict[str, Dict[str, Dict[str, float]]] = {}
+        self._normalized_rules: Dict[str, Dict[str, Dict[str, float]]] = {}  # Pre-normalized cache
         self._loaded = False
         
     def _get_rules_path(self) -> str:
@@ -39,12 +40,23 @@ class RuleManager:
         try:
             with open(path, "r", encoding="utf-8") as f:
                 self._rules = json.load(f)
+            # Build pre-normalized cache for faster lookups
+            self._build_normalized_cache()
             logger.info(f"Loaded custom rules from {path}")
         except Exception as e:
             logger.error(f"Failed to load custom rules: {e}")
             self._rules = {"eaux": {}, "sols": {}}
+            self._normalized_rules = {"eaux": {}, "sols": {}}
         
         self._loaded = True
+    
+    def _build_normalized_cache(self) -> None:
+        """Build pre-normalized rules cache for faster key lookups."""
+        self._normalized_rules = {}
+        for matrix, params in self._rules.items():
+            self._normalized_rules[matrix] = {
+                str(k).strip().lower(): v for k, v in params.items()
+            }
         
     def save_rules(self) -> bool:
         """Save current rules to JSON file."""
@@ -124,8 +136,10 @@ class RuleManager:
             if pd.notna(k)
         }
         
-        for param_key, overrides in matrix_rules.items():
-            normalized_key = str(param_key).strip().lower()
+        # Use pre-normalized rules cache for faster lookups
+        normalized_rules = self._normalized_rules.get(matrix, {})
+        
+        for normalized_key, overrides in normalized_rules.items():
             if normalized_key not in key_map:
                 continue
                 

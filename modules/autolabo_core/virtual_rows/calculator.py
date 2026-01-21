@@ -7,6 +7,7 @@ based on component parameters.
 
 import logging
 from typing import List, Dict, Any, Tuple
+import numpy as np
 import pandas as pd
 
 from ..config.models import VirtualRowConfig, ColumnMapping
@@ -117,20 +118,43 @@ class VirtualRowsCalculator:
 
         Returns:
             (total_sum, all_lower_than_LOQ, has_data)
+        
+        Performance: Uses numpy vectorized operations for faster processing.
         """
-        total_sum = 0.0
-        all_lower = True
-        has_data = False
-
-        for val in values:
-            num, is_lower = self._parse_value_for_sum(val)
-            if pd.notna(val) and str(val).strip() not in ['-', '']:
-                has_data = True
-            if not is_lower:
-                all_lower = False
-                total_sum += num
-
-        return total_sum, all_lower, has_data
+        if len(values) == 0:
+            return 0.0, True, False
+        
+        # Convert to string array for vectorized operations
+        str_values = np.array([str(v) if pd.notna(v) else '' for v in values])
+        
+        # Check for empty/placeholder values
+        empty_mask = np.isin(str_values, ['-', '', 'nan', 'NAN', 'None'])
+        has_data = not np.all(empty_mask)
+        
+        if not has_data:
+            return 0.0, True, False
+        
+        # Check for "<" prefix (lower than LOQ)
+        is_lower = np.char.startswith(str_values, '<')
+        
+        # Parse numeric values
+        def parse_numeric(s):
+            try:
+                return float(s.replace('<', '').replace(',', '.').strip())
+            except (ValueError, AttributeError):
+                return 0.0
+        
+        numeric_values = np.array([parse_numeric(s) for s in str_values])
+        
+        # Sum only non-"<" values
+        valid_mask = ~is_lower & ~empty_mask
+        total_sum = np.sum(numeric_values[valid_mask])
+        
+        # Check if all non-empty values are "<"
+        non_empty_mask = ~empty_mask
+        all_lower = np.all(is_lower[non_empty_mask]) if non_empty_mask.any() else True
+        
+        return float(total_sum), bool(all_lower), bool(has_data)
 
     def _parse_value_for_sum(self, v) -> Tuple[float, bool]:
         """

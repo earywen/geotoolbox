@@ -7,6 +7,7 @@ commonly used in laboratory reports (ng, µg, mg, g per L or kg).
 
 import re
 import logging
+from functools import lru_cache
 from typing import Optional, Tuple
 
 logger = logging.getLogger(__name__)
@@ -31,6 +32,7 @@ UNIT_PATTERN = re.compile(
 )
 
 
+@lru_cache(maxsize=256)
 def parse_unit(unit_str: str) -> Optional[Tuple[float, str]]:
     """
     Parse a concentration unit string into multiplier and base.
@@ -75,6 +77,7 @@ def parse_unit(unit_str: str) -> Optional[Tuple[float, str]]:
     return (multiplier, base)
 
 
+@lru_cache(maxsize=1024)
 def get_conversion_factor(from_unit: str, to_unit: str) -> Optional[float]:
     """
     Calculate conversion factor between two units.

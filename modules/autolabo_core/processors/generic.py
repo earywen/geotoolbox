@@ -153,7 +153,9 @@ class GenericLabProcessor(BaseProcessor):
                 if pd.isna(val) or val == "": return None
                 return str(val)
 
-            for _, row in df_merged.iterrows():
+            # Performance: Use to_dict('records') instead of iterrows() for 10-100x faster iteration
+            records = df_merged.to_dict('records')
+            for row in records:
                 # Determine status: Matched if RAW code column AND RAW unit column are present
                 # Note: merge suffixes result in {code}_RAW and {unit}_RAW
                 
@@ -349,36 +351,43 @@ class GenericLabProcessor(BaseProcessor):
         if self.config.formatting_mode == "sols":
             df = self._add_section_column(df)
 
+        # Extract family headers and assign to parameters
+        # Family headers are rows with: name (col 4) present, but no code (col 0) and no unit (col 5)
+        cols = self.config.columns
+        c_code = str(cols.code)      # "0"
+        c_name = str(cols.name)      # "4"
+        c_unit = str(cols.unit)      # "5"
+        
+        current_family = None
+        family_assignments = []
+        
+        for idx in range(len(df)):
+            row = df.iloc[idx]
+            code_val = row[c_code] if c_code in df.columns else None
+            name_val = row[c_name] if c_name in df.columns else None
+            unit_val = row[c_unit] if c_unit in df.columns else None
+            
+            has_code = pd.notna(code_val) and str(code_val).strip().lower() not in ['nan', 'none', '']
+            has_name = pd.notna(name_val) and str(name_val).strip().lower() not in ['nan', 'none', '']
+            has_unit = pd.notna(unit_val) and str(unit_val).strip().lower() not in ['nan', 'none', '']
+            
+            if has_name and not has_code and not has_unit:
+                # This is a family header
+                current_family = str(name_val).strip()
+                family_assignments.append(None)  # Don't assign family to itself
+            else:
+                # This is a parameter row
+                family_assignments.append(current_family)
+        
+        df['_family_header'] = family_assignments
+        logger.debug(f"Found {len([f for f in family_assignments if f])} parameters with family assignments")
+
         # Apply User Custom Rules (Epic 14)
         try:
             from ..rules import RuleManager
             rule_manager = RuleManager()
             
-            # Use raw_code_col or code as the key column
-            cols = self.config.columns
-            key_col_ref = str(cols.code) # Default to code dict key
-            
-            # But apply_overrides processes the dataframe which has generic columns "0", "1", etc.
-            # Wait, df is read with header=None, so columns are "0", "1", etc.
-            # We need to target the column index that corresponds to the key.
-            # The config object stores column INDICES. 
-            
-            # The generic generic.py code assumes config.columns attributes are column INDICES (integers)
-            # or names if header was present. 
-            # Let's verify how config is loaded. 
-            # In yaml: code: 0, unit: 5. 
-            # So df.columns are '0', '1'... NO. pd.read_excel(header=None) makes columns Integers 0, 1...
-            # BUT line 209: df.columns = [str(c) for c in df.columns] -> Converts to "0", "1".
-            
-            # So if yaml says code: 0, we look for column "0".
-            
             key_col_idx = str(self.config.columns.code)
-            
-            # To be safe, we also need to know which matrix we are in.
-            # GenericLabProcessor doesn't explicitly know "eaux" or "sols", but it has config.
-            # We can infer it or pass it. 
-            
-            # Let's add a matrix_id to GenericLabProcessor or infer from formatting_mode
             matrix_id = "sols" if self.config.formatting_mode == "sols" else "eaux"
             
             df = rule_manager.apply_overrides(df, matrix_id, key_col=key_col_idx)
@@ -479,8 +488,11 @@ class GenericLabProcessor(BaseProcessor):
         
         Automatically converts values when raw and reference units differ
         (e.g., mg/L → µg/L, ng/kg → µg/kg).
+        
+        Performance: Groups rows by unique unit pairs and applies conversion
+        in batch instead of cell-by-cell iteration.
         """
-        from ..units import normalize_to_reference
+        from ..units import get_conversion_factor
         
         cols = self.config.columns
         unit_col_ref = str(cols.unit) + "_REF" if str(cols.unit) + "_REF" in df.columns else str(cols.unit)
@@ -492,30 +504,57 @@ class GenericLabProcessor(BaseProcessor):
         
         conversions_made = 0
         
-        for sample in self.samples:
-            sample_col = sample["idx"]
+        # Get unique unit pairs to minimize conversion factor lookups
+        df['_raw_unit_norm'] = df[unit_col_raw].fillna('').astype(str).str.strip().str.lower()
+        df['_ref_unit_norm'] = df[unit_col_ref].fillna('').astype(str).str.strip().str.lower()
+        
+        # Find pairs that differ and need conversion
+        needs_conversion = (
+            (df['_raw_unit_norm'] != '') & 
+            (df['_ref_unit_norm'] != '') & 
+            (df['_raw_unit_norm'] != df['_ref_unit_norm'])
+        )
+        
+        if not needs_conversion.any():
+            df.drop(columns=['_raw_unit_norm', '_ref_unit_norm'], inplace=True, errors='ignore')
+            return df
+        
+        # Get unique unit pairs that need conversion
+        pairs_df = df.loc[needs_conversion, [unit_col_raw, unit_col_ref]].drop_duplicates()
+        
+        for _, pair_row in pairs_df.iterrows():
+            raw_unit = str(pair_row[unit_col_raw])
+            ref_unit = str(pair_row[unit_col_ref])
             
-            for idx in df.index:
-                try:
-                    raw_unit = str(df.at[idx, unit_col_raw]) if pd.notna(df.at[idx, unit_col_raw]) else ""
-                    ref_unit = str(df.at[idx, unit_col_ref]) if pd.notna(df.at[idx, unit_col_ref]) else ""
-                    
-                    if not raw_unit or not ref_unit or raw_unit.lower() == ref_unit.lower():
-                        continue
-                    
-                    raw_value = df.at[idx, sample_col]
-                    if pd.isna(raw_value) or not isinstance(raw_value, (int, float)):
-                        continue
-                    
-                    converted, was_converted = normalize_to_reference(float(raw_value), raw_unit, ref_unit)
-                    
-                    if was_converted:
-                        df.at[idx, sample_col] = converted
-                        conversions_made += 1
-                        
-                except Exception as e:
-                    logger.debug(f"Unit conversion skipped for row {idx}: {e}")
+            factor = get_conversion_factor(raw_unit, ref_unit)
+            if factor is None or factor == 1.0:
+                continue
+            
+            # Find all rows matching this unit pair
+            mask = (
+                (df[unit_col_raw].fillna('').astype(str) == raw_unit) &
+                (df[unit_col_ref].fillna('').astype(str) == ref_unit)
+            )
+            
+            # Apply conversion to all sample columns at once
+            for sample in self.samples:
+                sample_col = sample["idx"]
+                if sample_col not in df.columns:
                     continue
+                
+                # Only convert numeric values
+                numeric_mask = mask & df[sample_col].apply(lambda x: isinstance(x, (int, float)) and pd.notna(x))
+                
+                if numeric_mask.any():
+                    count_before = conversions_made
+                    df.loc[numeric_mask, sample_col] = df.loc[numeric_mask, sample_col] * factor
+                    conversions_made += numeric_mask.sum()
+                    
+                    if conversions_made > count_before:
+                        logger.debug(f"⚡ Batch conversion: {raw_unit} → {ref_unit} (factor: {factor})")
+        
+        # Cleanup temporary columns
+        df.drop(columns=['_raw_unit_norm', '_ref_unit_norm'], inplace=True, errors='ignore')
         
         if conversions_made > 0:
             logger.info(f"⚡ Smart Units: {conversions_made} value(s) converted")

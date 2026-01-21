@@ -5,30 +5,50 @@ from modules import core
 from .models import LAYERS_CONFIG
 from .parsers import parse_gml_response
 
+# Performance: Precompiled regex patterns for faster scraping
+_WHITESPACE_PATTERN = re.compile(r'\s+')
+_HTML_TAG_PATTERN = re.compile(r'<[^>]+>')
+_ACTIVITY_PRIMARY_PATTERN = re.compile(
+    r"Activit(?:é|e)\s*principale.*?<td[^>]*>.*?<span>(.*?)</span>",
+    re.IGNORECASE
+)
+_ACTIVITY_SECONDARY_PATTERN = re.compile(
+    r"Activit(?:é|e)\(s\)\s*secondaire\(s\).*?<tbody>.*?<td>(.*?)</td>",
+    re.IGNORECASE
+)
+_ACTIVITY_DD_PATTERN = re.compile(
+    r"(?:Activit(?:é|e)(?:s)?\s*(?:principale|exercée)?).*?<dd[^>]*>(.*?)</dd>",
+    re.IGNORECASE
+)
+_BSS_NIVEAU_EAU_PATTERN = re.compile(
+    r"Niveau d'eau mesuré par rapport au sol.*?([\d]+(?:[\.,]\d+)?)\s*m",
+    re.IGNORECASE
+)
+
 def scrape_ssp_activity(session, url):
     if not url or "http" not in url: return "-"
     try:
         r = session.get(url, timeout=5)
         if r.status_code != 200: return "Err HTTP"
         html = r.text.replace('\n', ' ').replace('\r', ' ')
-        html = re.sub(r'\s+', ' ', html)
+        html = _WHITESPACE_PATTERN.sub(' ', html)
 
-        m_prim = re.search(r"Activit(?:é|e)\s*principale.*?<td[^>]*>.*?<span>(.*?)</span>", html, re.IGNORECASE)
+        m_prim = _ACTIVITY_PRIMARY_PATTERN.search(html)
         val_prim = ""
         if m_prim:
-            val_prim = re.sub(r'<[^>]+>', '', m_prim.group(1)).strip()
+            val_prim = _HTML_TAG_PATTERN.sub('', m_prim.group(1)).strip()
         if val_prim and "Non renseignée" not in val_prim and "Indéterminé" not in val_prim:
             return val_prim
 
-        m_sec = re.search(r"Activit(?:é|e)\(s\)\s*secondaire\(s\).*?<tbody>.*?<td>(.*?)</td>", html, re.IGNORECASE)
+        m_sec = _ACTIVITY_SECONDARY_PATTERN.search(html)
         if m_sec:
-            val_sec = re.sub(r'<[^>]+>', '', m_sec.group(1)).strip()
+            val_sec = _HTML_TAG_PATTERN.sub('', m_sec.group(1)).strip()
             if val_sec and "Non renseignée" not in val_sec:
                 return f"{val_sec} (Secondaire)"
 
-        m_dd = re.search(r"(?:Activit(?:é|e)(?:s)?\s*(?:principale|exercée)?).*?<dd[^>]*>(.*?)</dd>", html, re.IGNORECASE)
+        m_dd = _ACTIVITY_DD_PATTERN.search(html)
         if m_dd:
-            val_dd = re.sub(r'<[^>]+>', '', m_dd.group(1)).strip()
+            val_dd = _HTML_TAG_PATTERN.sub('', m_dd.group(1)).strip()
             if val_dd: return val_dd
 
         return val_prim if val_prim else "Non détectée"
@@ -82,7 +102,7 @@ def fetch_features(layer_key, bbox, mode='preview'):
                 if r.status_code != 200: row['niveau_eau_scrappe'] = "Err HTTP"
                 else:
                     html_flat = r.text.replace('\n', ' ').replace('\r', ' ')
-                    m = re.search(r"Niveau d'eau mesuré par rapport au sol.*?([\d]+(?:[\.,]\d+)?)\s*m", html_flat, re.IGNORECASE)
+                    m = _BSS_NIVEAU_EAU_PATTERN.search(html_flat)
                     row['niveau_eau_scrappe'] = f"{m.group(1)} m" if m else "Non indiqué"
             except Exception:
                 row['niveau_eau_scrappe'] = "-"
