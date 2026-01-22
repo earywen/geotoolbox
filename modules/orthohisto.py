@@ -126,7 +126,13 @@ def download_file_stream(url: str, filepath: str,
 
 def download_pva_tif(year: int, info: Dict[str, Any], folder_path: str, dl_base: str) -> Dict[str, str]:
     """Helper to download a single PVA TIF with real year in filename.
-    Creates world file (.tfw) for georeferencing if footprint is available.
+    
+    Enhanced processing includes:
+    1. Download the raw PVA TIF
+    2. Auto-crop black scanner borders
+    3. Apply rotation based on IGN orientation
+    4. Create world file with adjusted footprint
+    
     Uses EPSG:3857 (Web Mercator) for consistency with mosaics."""
     try:
         # Use real year from PVA data
@@ -136,43 +142,50 @@ def download_pva_tif(year: int, info: Dict[str, Any], folder_path: str, dl_base:
         # Construct TIF URL directly
         url_tif = f"{dl_base}/{info['ds_id']}/{info['img_id']}.tif"
         
-        # We pass None for callback to avoid granular spam, we track mission completion instead
+        # Download file
         bytes_dl = download_file_stream(url_tif, target, progress_callback=None)
         
         if bytes_dl >= 0:
             size_mb = bytes_dl / (1024 * 1024)
             georef_status = ""
+            processing_status = ""
             
-            # Try to create georeferencing files if we have footprint data
             footprint = info.get('footprint')
+            orientation = info.get('orientation')
+            
             if footprint:
+                # Try advanced processing with OpenCV (auto-crop + rotation)
                 try:
-                    from PIL import Image
-                    from modules.qgis_export.worldfile_writer import create_world_file, create_prj_file, EPSG_WEB_MERCATOR
+                    from modules.pva_processor import create_georeferenced_pva
                     
-                    # Get image dimensions
-                    with Image.open(target) as img:
-                        width, height = img.size
+                    result = create_georeferenced_pva(
+                        input_path=target,
+                        footprint=footprint,
+                        orientation=orientation,
+                        auto_crop=True,
+                        apply_rotation=True
+                    )
                     
-                    # Create bbox dict for worldfile_writer (expects min_lat, max_lat, min_lon, max_lon)
-                    bbox_dict = {
-                        'min_lat': footprint['min_lat'],
-                        'max_lat': footprint['max_lat'],
-                        'min_lon': footprint['min_lon'],
-                        'max_lon': footprint['max_lon']
-                    }
-                    
-                    # Create world file (.tfw) in EPSG:3857 (same as mosaics)
-                    create_world_file(target, bbox_dict, width, height, target_crs=EPSG_WEB_MERCATOR)
-                    create_prj_file(target, epsg=EPSG_WEB_MERCATOR)
-                    
-                    georef_status = " (géoréf.)"
-                    logging.info(f"[PVA] {year}: World file créé EPSG:3857 ({width}x{height}px)")
-                    
+                    if result.get("success"):
+                        georef_status = " (géoréf.+)"
+                        if result.get("rotation_applied"):
+                            processing_status = f" rot:{result['rotation_applied']:.0f}°"
+                        logging.info(f"[PVA] {year}: Traitement avancé OK{processing_status}")
+                    else:
+                        # Fallback to basic georeferencing
+                        raise Exception(result.get("error", "Unknown error"))
+                        
                 except ImportError as e:
-                    logging.warning(f"[PVA] {year}: Import error: {e}")
+                    # OpenCV not available, fallback to basic georeferencing
+                    logging.info(f"[PVA] {year}: OpenCV non disponible, géoréf. basique")
+                    _fallback_basic_georef(target, footprint, year)
+                    georef_status = " (géoréf.)"
+                    
                 except Exception as e:
-                    logging.warning(f"[PVA] {year}: Erreur création world file: {e}")
+                    # Any error in advanced processing, try basic
+                    logging.warning(f"[PVA] {year}: Traitement avancé échoué ({e}), fallback basique")
+                    _fallback_basic_georef(target, footprint, year)
+                    georef_status = " (géoréf.)"
             
             return {"annee": str(year), "status": f"PVA OK{georef_status} ({size_mb:.1f} Mo)"}
         else:
@@ -180,6 +193,30 @@ def download_pva_tif(year: int, info: Dict[str, Any], folder_path: str, dl_base:
             
     except Exception as e:
         return {"annee": str(year), "status": f"Erreur: {str(e)}"}
+
+
+def _fallback_basic_georef(target: str, footprint: Dict[str, Any], year: int) -> None:
+    """Fallback basic georeferencing without OpenCV processing."""
+    try:
+        from PIL import Image
+        from modules.qgis_export.worldfile_writer import create_world_file, create_prj_file, EPSG_WEB_MERCATOR
+        
+        with Image.open(target) as img:
+            width, height = img.size
+        
+        bbox_dict = {
+            'min_lat': footprint['min_lat'],
+            'max_lat': footprint['max_lat'],
+            'min_lon': footprint['min_lon'],
+            'max_lon': footprint['max_lon']
+        }
+        
+        create_world_file(target, bbox_dict, width, height, target_crs=EPSG_WEB_MERCATOR)
+        create_prj_file(target, epsg=EPSG_WEB_MERCATOR)
+        logging.info(f"[PVA] {year}: World file créé EPSG:3857 ({width}x{height}px)")
+        
+    except Exception as e:
+        logging.warning(f"[PVA] {year}: Erreur création world file: {e}")
 
 def process_all_pva(lat: float, lon: float, folder_path: str, radius_m: int,
                     callback: Optional[Callable[[float, str], None]] = None,
