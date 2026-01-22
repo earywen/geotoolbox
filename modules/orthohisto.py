@@ -14,9 +14,10 @@ TOOL_INFO: Dict[str, str] = {
     "id": "orthohisto",
     "name": "Chronologie Complète",
     "icon": "⏳",
-    "description": "Extraction automatique 1920-2024"
+    "description": "Extraction automatique PVA 1920-2024"
 }
 
+# Mosaïques IGN géoréférencées (complètent les PVA non-géoréférencées)
 IGN_MOSAICS: List[Tuple[str, str]] = [
     ("1950-1965", "ORTHOIMAGERY.ORTHOPHOTOS.1950-1965"),
     ("1965-1980", "ORTHOIMAGERY.ORTHOPHOTOS.1965-1980"),
@@ -29,6 +30,9 @@ IGN_MOSAICS: List[Tuple[str, str]] = [
     ("2022", "ORTHOIMAGERY.ORTHOPHOTOS2022"),
     ("2023", "ORTHOIMAGERY.ORTHOPHOTOS2023"),
 ]
+
+# Minimum file size threshold for non-empty images (in bytes)
+MIN_IMAGE_SIZE = 50000  # 50KB - images smaller are considered empty/white
 
 # ==========================================
 # 2. LOGIQUE MÉTIER
@@ -43,7 +47,8 @@ def ensure_folder(path: Optional[str]) -> str:
     return path
 
 def download_wms(layer_name: str, filename: str, bbox: str, bbox_dict: Optional[Dict[str, float]] = None) -> str:
-    """Downloads a WMS tile for the given layer and bbox. Generates world file if bbox_dict provided."""
+    """Downloads a WMS tile for the given layer and bbox. Generates world file if bbox_dict provided.
+    Returns 'OK', 'Vide' (empty/white), or 'Erreur'."""
     wms_base = core.CONFIG.get('orthohisto', {}).get('wms_url')
     # Use 2500x2500 for good resolution
     url = (f"{wms_base}?SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap&FORMAT=image/png"
@@ -56,8 +61,9 @@ def download_wms(layer_name: str, filename: str, bbox: str, bbox_dict: Optional[
         r = session.get(url, timeout=60)
 
         if r.status_code == 200 and 'image' in r.headers.get('Content-Type', ''):
-            if len(r.content) < 10000:
-                logging.warning(f"[Mosaïque] {layer_name} est vide (probablement blanche)")
+            # Skip empty/white images - don't even save them
+            if len(r.content) < MIN_IMAGE_SIZE:
+                logging.info(f"[Mosaïque] {layer_name} -> Ignoré (image vide/blanche)")
                 return "Vide"
 
             with open(filename, 'wb') as f:
@@ -92,7 +98,7 @@ def download_file_stream(url: str, filepath: str,
         session = core.get_session()
         with session.get(url, stream=True, timeout=60) as r:
             if r.status_code == 404:
-                logging.warning(f"[Mission] 404 Non trouvé: {url}")
+                logging.warning(f"[PVA] 404 Non trouvé: {url}")
                 return -1
             r.raise_for_status()
             
@@ -115,13 +121,16 @@ def download_file_stream(url: str, filepath: str,
             
             return downloaded
     except Exception as e:
-        logging.error(f"[Mission] Erreur DL {os.path.basename(filepath)}: {e}")
+        logging.error(f"[PVA] Erreur DL {os.path.basename(filepath)}: {e}")
         return -1
 
-def download_mission_tif(year: int, info: Dict[str, Any], folder_path: str, dl_base: str) -> Dict[str, str]:
-    """Helper to download a single mission TIF."""
+def download_pva_tif(year: int, info: Dict[str, Any], folder_path: str, dl_base: str) -> Dict[str, str]:
+    """Helper to download a single PVA TIF with real year in filename.
+    Creates world file (.tfw) for georeferencing if footprint is available.
+    Uses EPSG:3857 (Web Mercator) for consistency with mosaics."""
     try:
-        base_name = f"{year}_Mission.tif"
+        # Use real year from PVA data
+        base_name = f"{year}_PVA.tif"
         target = os.path.join(folder_path, base_name)
         
         # Construct TIF URL directly
@@ -132,21 +141,54 @@ def download_mission_tif(year: int, info: Dict[str, Any], folder_path: str, dl_b
         
         if bytes_dl >= 0:
             size_mb = bytes_dl / (1024 * 1024)
-            return {"annee": str(year), "status": f"Mission OK ({size_mb:.1f} Mo)"}
+            georef_status = ""
+            
+            # Try to create georeferencing files if we have footprint data
+            footprint = info.get('footprint')
+            if footprint:
+                try:
+                    from PIL import Image
+                    from modules.qgis_export.worldfile_writer import create_world_file, create_prj_file, EPSG_WEB_MERCATOR
+                    
+                    # Get image dimensions
+                    with Image.open(target) as img:
+                        width, height = img.size
+                    
+                    # Create bbox dict for worldfile_writer (expects min_lat, max_lat, min_lon, max_lon)
+                    bbox_dict = {
+                        'min_lat': footprint['min_lat'],
+                        'max_lat': footprint['max_lat'],
+                        'min_lon': footprint['min_lon'],
+                        'max_lon': footprint['max_lon']
+                    }
+                    
+                    # Create world file (.tfw) in EPSG:3857 (same as mosaics)
+                    create_world_file(target, bbox_dict, width, height, target_crs=EPSG_WEB_MERCATOR)
+                    create_prj_file(target, epsg=EPSG_WEB_MERCATOR)
+                    
+                    georef_status = " (géoréf.)"
+                    logging.info(f"[PVA] {year}: World file créé EPSG:3857 ({width}x{height}px)")
+                    
+                except ImportError as e:
+                    logging.warning(f"[PVA] {year}: Import error: {e}")
+                except Exception as e:
+                    logging.warning(f"[PVA] {year}: Erreur création world file: {e}")
+            
+            return {"annee": str(year), "status": f"PVA OK{georef_status} ({size_mb:.1f} Mo)"}
         else:
             return {"annee": str(year), "status": "Echec TIF"}
             
     except Exception as e:
         return {"annee": str(year), "status": f"Erreur: {str(e)}"}
 
-def process_missions(lat: float, lon: float, folder_path: str, radius_m: int,
-                     callback: Optional[Callable[[float, str], None]] = None,
-                     current_prog: float = 0) -> List[Dict[str, str]]:
-    """Fetches historic missions via WFS (< 1960) using Parallel Execution."""
+def process_all_pva(lat: float, lon: float, folder_path: str, radius_m: int,
+                    callback: Optional[Callable[[float, str], None]] = None,
+                    current_prog: float = 0, progress_range: float = 90.0) -> List[Dict[str, str]]:
+    """Fetches ALL historic PVA missions via WFS (no year limit) using Parallel Execution."""
 
     if callback:
-        callback(current_prog, "Recherche Missions anciennes...")
-    logging.info(f"Recherche WFS Missions anciennes autour de {lat}, {lon} ({radius_m}m)")
+        callback(current_prog, "Recherche de toutes les photos aériennes (PVA)...")
+    logging.info(f"Recherche WFS PVA autour de {lat}, {lon} ({radius_m}m)")
 
     # 1 deg de Latitude ~= 111.111 km
     delta_lat = float(radius_m) / 111111.0
@@ -184,43 +226,75 @@ def process_missions(lat: float, lon: float, folder_path: str, radius_m: int,
             except (ValueError, IndexError):
                 continue
 
-            if year < 1960:
-                geo = f.get('geometry', {})
-                dist = 999.0
-                if geo.get('type') == 'Point':
-                    p_lon, p_lat = geo.get('coordinates')
-                    dist = math.sqrt((p_lon - lon)**2 + (p_lat - lat)**2)
+            # NO YEAR LIMIT - fetch ALL PVA
+            geo = f.get('geometry', {})
+            geo_type = geo.get('type', '')
+            coords = geo.get('coordinates', [])
+            
+            dist = 999.0
+            footprint = None
+            orientation = props.get('orientation')
+            
+            # Handle Polygon geometry (preferred - gives us exact footprint)
+            if geo_type == 'Polygon' and coords:
+                # Polygon coordinates: [[outer_ring_coords], [optional_holes]]
+                outer_ring = coords[0] if coords else []
+                if outer_ring:
+                    # Calculate centroid for distance comparison
+                    lons = [c[0] for c in outer_ring]
+                    lats = [c[1] for c in outer_ring]
+                    center_lon = sum(lons) / len(lons)
+                    center_lat = sum(lats) / len(lats)
+                    dist = math.sqrt((center_lon - lon)**2 + (center_lat - lat)**2)
+                    
+                    # Store footprint bounding box for georeferencing
+                    footprint = {
+                        'min_lon': min(lons),
+                        'max_lon': max(lons),
+                        'min_lat': min(lats),
+                        'max_lat': max(lats),
+                        'polygon': outer_ring  # Full polygon if needed later
+                    }
+                    logging.debug(f"[PVA] {year}: Polygon footprint found")
+            
+            # Fallback to Point geometry
+            elif geo_type == 'Point' and coords:
+                p_lon, p_lat = coords[0], coords[1] if len(coords) > 1 else coords
+                dist = math.sqrt((p_lon - lon)**2 + (p_lat - lat)**2)
 
-                ds_id = props.get('dataset_identifier')
-                img_id = props.get('image_identifier')
-                if ds_id and img_id:
-                    if year not in candidates or candidates[year]['dist'] > dist:
-                        candidates[year] = {
-                            'dist': dist, 'year': year, 'date': d,
-                            'ds_id': ds_id, 'img_id': img_id
-                        }
+            ds_id = props.get('dataset_identifier')
+            img_id = props.get('image_identifier')
+            if ds_id and img_id:
+                # Keep the closest image for each year
+                if year not in candidates or candidates[year]['dist'] > dist:
+                    candidates[year] = {
+                        'dist': dist, 'year': year, 'date': d,
+                        'ds_id': ds_id, 'img_id': img_id,
+                        'footprint': footprint,  # Bounding box for georeferencing
+                        'orientation': orientation  # Rotation angle
+                    }
 
-        logging.info(f"WFS: {len(candidates)} années retenues (<1960) après filtrage")
+        logging.info(f"WFS: {len(candidates)} années uniques trouvées (toutes périodes)")
 
     except Exception as e:
-        logging.error(f"Erreur WFS Missions: {str(e)}")
+        logging.error(f"Erreur WFS PVA: {str(e)}")
         return [{"annee": "Erreur", "status": f"WFS: {str(e)}"}]
 
     logs: List[Dict[str, str]] = []
     total = len(candidates)
     if total == 0:
+        logging.warning("Aucune PVA trouvée dans cette zone")
         return logs
 
     # Parallel Processing using ThreadPoolExecutor
-    # Strategy: 0-50% progress distributed among N missions
-    step = 50.0 / total
+    step = progress_range / total
     dl_base = core.CONFIG.get('orthohisto', {}).get('download_url')
     
     # Use max_workers=4 to match user request/bandwidth limits
     with ThreadPoolExecutor(max_workers=4) as executor:
         futures = {}
         for year, info in candidates.items():
-            f = executor.submit(download_mission_tif, year, info, folder_path, dl_base)
+            f = executor.submit(download_pva_tif, year, info, folder_path, dl_base)
             futures[f] = year
             
         done_count = 0
@@ -238,24 +312,29 @@ def process_missions(lat: float, lon: float, folder_path: str, radius_m: int,
                 r_status = res.get('status', '')
                 status_short = "OK" if "OK" in r_status else "Échec"
                 
-                # Extract size if present in status string "Mission OK (12.5 Mo)"
+                # Extract size if present in status string "PVA OK (12.5 Mo)"
                 size_info = ""
                 if "(" in r_status and "Mo)" in r_status:
                      size_info = r_status.split('(')[1].split(')')[0] # extract "12.5 Mo"
-                     callback(new_pct, f"Missions: {done_count}/{total} (An {y_lbl}: {size_info})")
+                     callback(new_pct, f"PVA: {done_count}/{total} (Année {y_lbl}: {size_info})")
                 else:
-                     callback(new_pct, f"Missions: {done_count}/{total} (An {y_lbl} {status_short})")
+                     callback(new_pct, f"PVA: {done_count}/{total} (Année {y_lbl} {status_short})")
                 
-            if "Mission OK" in res.get('status', ''):
-                 logging.info(f"[Mission] {res['annee']} -> {res['status']}")
+            if "PVA OK" in res.get('status', ''):
+                 logging.info(f"[PVA] {res['annee']} -> {res['status']}")
             else:
-                 logging.warning(f"[Mission] {res['annee']} -> {res['status']}")
+                 logging.warning(f"[PVA] {res['annee']} -> {res['status']}")
 
     return logs
 
 def run_full_process(lat: float, lon: float, radius_m: int, folder_path_input: Optional[str],
                      progress_callback: Optional[Callable[[float, str], None]] = None) -> Dict[str, Any]:
-    """Orchestrates the full historic imagery extraction process."""
+    """Orchestrates the full historic imagery extraction process.
+    
+    New strategy:
+    - Phase 1 (0-90%): Download ALL PVA images (no year limit)
+    - Phase 2 (90-100%): Download only recent mosaics (2021-2023) as fallback for very recent years
+    """
     logging.info(f"=== Start Chronologie: {lat}, {lon} ===")
 
     folder_path = ensure_folder(folder_path_input)
@@ -263,15 +342,20 @@ def run_full_process(lat: float, lon: float, radius_m: int, folder_path_input: O
 
     final_report: List[Dict[str, str]] = []
 
-    # ÉTAPE 1 : MISSIONS ANCIENNES (0% -> 50%)
-    logging.info("--- Phase 1 : Missions < 1960 ---")
-    mission_report = process_missions(lat, lon, folder_path, radius_m, progress_callback, 0)
-    final_report.extend(mission_report)
+    # ÉTAPE 1 : TOUTES LES PVA (0% -> 90%)
+    logging.info("--- Phase 1 : Téléchargement de toutes les PVA ---")
+    pva_report = process_all_pva(lat, lon, folder_path, radius_m, progress_callback, 0, 90.0)
+    final_report.extend(pva_report)
+    
+    # Get list of years already downloaded
+    downloaded_years = {int(r.get('annee', '0')) for r in pva_report if 'OK' in r.get('status', '')}
+    logging.info(f"PVA téléchargées pour les années: {sorted(downloaded_years)}")
 
-    # ÉTAPE 2 : MOSAIQUES MODERNES (50% -> 100%)
-    logging.info("--- Phase 2 : Mosaïques > 1950 ---")
+    # ÉTAPE 2 : TOUTES LES MOSAIQUES GÉORÉFÉRENCÉES (90% -> 100%)
+    # Les mosaïques sont géoréférencées (.pgw/.prj) contrairement aux PVA
+    logging.info("--- Phase 2 : Téléchargement des mosaïques géoréférencées ---")
     if progress_callback:
-        progress_callback(50.0, "Démarrage Mosaïques...")
+        progress_callback(90.0, "Téléchargement mosaïques géoréférencées...")
 
     delta_lat = float(radius_m) / 111111.0
     cos_lat = math.cos(math.radians(lat))
@@ -289,13 +373,14 @@ def run_full_process(lat: float, lon: float, radius_m: int, folder_path_input: O
         'max_lon': lon + delta_lon
     }
 
+    # Download ALL mosaics - they provide georeferenced imagery
     total_mos = len(IGN_MOSAICS)
-    step_mos = 50.0 / total_mos
+    step_mos = 10.0 / total_mos
 
     with ThreadPoolExecutor(max_workers=5) as executor:
         futures: Dict[Future, str] = {}
         for label, layer in IGN_MOSAICS:
-            fname = os.path.join(folder_path, f"{label}.png")
+            fname = os.path.join(folder_path, f"{label}_Mosaic.png")
             futures[executor.submit(download_wms, layer, fname, wms_bbox, bbox_dict)] = label
 
         done_count = 0
@@ -304,12 +389,13 @@ def run_full_process(lat: float, lon: float, radius_m: int, folder_path_input: O
             lbl = futures[f]
             try:
                 res = f.result()
-                current_pct = 50.0 + (done_count * step_mos)
+                current_pct = 90.0 + (done_count * step_mos)
                 if progress_callback:
                     progress_callback(current_pct, f"Mosaïque {lbl}...")
 
                 if res == "OK":
-                    final_report.append({"annee": lbl, "status": "Mosaïque OK"})
+                    final_report.append({"annee": f"{lbl} (géoréf.)", "status": "Mosaïque OK"})
+                # Empty mosaics are not saved (handled in download_wms)
             except Exception as e:
                 logging.error(f"Error processing future for {lbl}: {e}")
 
