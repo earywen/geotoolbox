@@ -1,0 +1,32 @@
+# Build artifacts
+build/
+dist/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Virtual environments
+venv/
+env/
+.env
+
+# Local exports and test outputs
+Export_*
+Chronologie_*
+Rapport_*.xlsx
+test_*.xlsx
+
+# Logs
+*.log
+
+# IDE (optional)
+.idea/
+*.code-workspace
+
+# Temporary/test files
+burgeaply-old/
+test_pva.py
+*.spec
+ressources/

@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BURGEAPLY {{VERSION}}</title>
+
+    <!-- LEAFLET & DEPS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+    <!-- MAIN CSS (Injected) -->
+    <style>
+        {
+                {
+                CSS_CONTENT
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- SPLASH SCREEN -->
+    <div id="splash-screen">
+        <img src="{{LOGO_B64}}" style="width: 80px; margin-bottom: 20px; animation: float 3s infinite;">
+        <div style="font-weight: 600; font-size: 24px; color:white;">BURGEAPLY</div>
+        <div style="color:var(--text-muted); font-size:12px; margin-top:5px;">{{VERSION}}</div>
+        <div class="loader-bar-bg">
+            <div class="loader-bar-fill" id="splash-bar"></div>
+        </div>
+    </div>
+
+    <!-- PROCESS OVERLAY -->
+    <div id="processing-overlay">
+        <div style="font-size: 40px; margin-bottom: 20px; animation: float 2s infinite;">⚙️</div>
+        <div id="proc-title" style="font-weight: 700; font-size: 22px;">Traitement en cours</div>
+        <div id="proc-desc" style="color: var(--text-muted); margin-top: 5px;">Veuillez patienter...</div>
+        <div class="loader-bar-bg" style="width: 300px; background: rgba(255,255,255,0.1);">
+            <div class="loader-bar-fill" id="proc-bar"></div>
+        </div>
+        <div id="proc-percent"
+            style="margin-top: 10px; font-family: monospace; font-weight: bold; color: var(--accent);">0%</div>
+    </div>
+
+    <!-- TOAST CONTAINER -->
+    <div id="toast-container"></div>
+
+    <div id="app" style="opacity:0; transition: opacity 1s;">
+
+        <!-- 1. CONTENT AREA (BACKGROUND) -->
+        <div id="content-area">
+            <!-- HOME VIEW -->
+            <div id="view-home" class="view-section active">
+                <div class="home-hero">
+                    <img src="{{LOGO_B64}}" style="width: 100px; margin-bottom: 30px;">
+                    <h1>BURGEAPLY</h1>
+                    <p style="color: var(--text-muted); max-width: 400px; margin: 10px auto; line-height: 1.6;">
+                        Plateforme d'ingénierie environnementale avancée.<br>
+                        Exploration BSS, Cartographie et Outils SSP.
+                    </p>
+                    <div style="margin-top: 40px;">
+                        <button class="btn-glow"
+                            onclick="switchView('geotoolbox', document.querySelectorAll('.dock-item')[1])">
+                            {{ICON_GEOTOOLBOX}} Lancer GéoToolbox
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- DYNAMIC VIEWS -->
+            {{VIEWS_HTML}}
+        </div>
+
+        <!-- 2. FLOATING DOCK (FOREGROUND) -->
+        <div id="dock-container" class="glass-panel">
+            <div class="dock-logo">
+                <img src="{{LOGO_B64}}">
+                <div class="dock-title">BURGEAPLY</div>
+            </div>
+
+            <div class="dock-item active" onclick="switchView('home', this)">
+                <div class="icon-box">{{ICON_HOME}}</div>
+                <div class="label">Accueil</div>
+            </div>
+
+            <!-- DYNAMIC MENU -->
+            {{MENU_HTML}}
+
+            <div id="dock-footer">
+                v{{VERSION}}<br>
+                Développé par Laurent BRIGAUD<br>
+                Idée originale : Amine El Mahlali<br>
+                GINGER BURGEAP
+            </div>
+        </div>
+
+    </div>
+
+    <!-- SHARED SCRIPTS -->
+    <script>
+        // --- GLOBAL SHARED STATE ---
+        window.SHARED_STATE = {
+            viewport: null, // { center: {lat, lng}, zoom: int }
+            selection: null // { lat: float, lng: float }
+        };
+
+        function updateSharedState(viewport, selection) {
+            if (viewport) window.SHARED_STATE.viewport = viewport;
+            if (selection) window.SHARED_STATE.selection = selection;
+        }
+
+        function getSharedState() {
+            return window.SHARED_STATE;
+        }
+
+        function smartPanTo(map, latlng, zoom) {
+            map.setView(latlng, zoom || map.getZoom(), { animate: false });
+            // Offset for sidebar/dock if needed, but here dock is floating
+            // We can shift a bit if we want the point to be centered relative to available space
+            map.panBy([-250, 0], { animate: true, duration: 0.5 });
+        }
+
+        // --- SCRIPTS SYSTEM ---
+        window.onload = function () {
+            let p = 0; const bar = document.getElementById('splash-bar');
+            const interval = setInterval(() => {
+                p += 4; bar.style.width = p + '%';
+                if (p >= 100) {
+                    clearInterval(interval);
+                    document.getElementById('splash-screen').style.opacity = '0';
+                    setTimeout(() => {
+                        document.getElementById('splash-screen').style.display = 'none';
+                        document.getElementById('app').style.opacity = '1';
+
+                        // Trigger map resize if hidden
+                        window.dispatchEvent(new Event('resize'));
+
+                        setTimeout(() => {
+                            if (typeof pywebview !== 'undefined' && pywebview.api) {
+                                pywebview.api.check_updates_ui();
+                            }
+                        }, 1000);
+                    }, 600);
+                }
+            }, 30);
+        };
+
+        function showToast(type, message, duration = 4000) {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+
+            // Icons
+            let icon = '';
+            if (type === 'success') icon = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>';
+            if (type === 'error') icon = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>';
+            if (type === 'info') icon = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>';
+
+            toast.innerHTML = `
+            <div style="display:flex; align-items:center; gap:10px;">${icon} <span>${message}</span></div>
+            <div style="position:absolute; bottom:0; left:0; height:3px; background:rgba(255,255,255,0.3); width:100%; animation: timeBar ${duration}ms linear forwards;"></div>
+        `;
+
+            const style = document.createElement('style');
+            style.innerHTML = `@keyframes timeBar { from { width: 100%; } to { width: 0%; } }`;
+            toast.appendChild(style);
+
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.animation = 'fadeOut 0.5s forwards';
+                setTimeout(() => toast.remove(), 500);
+            }, duration);
+        }
+
+        function switchView(viewId, menuEl) {
+            document.querySelectorAll('.dock-item').forEach(el => el.classList.remove('active'));
+            if (menuEl) menuEl.classList.add('active');
+
+            document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+            const target = document.getElementById('view-' + viewId);
+            if (target) {
+                target.classList.add('active');
+                setTimeout(() => window.dispatchEvent(new Event('resize')), 100);
+            }
+
+            if (typeof window['init_' + viewId] === 'function') try { window['init_' + viewId](); } catch (e) { }
+        }
+
+        function browseFolder() {
+            pywebview.api.select_directory().then(p => { if (p) document.getElementById('targetPath').value = p; });
+        }
+
+        function showLoader(title) {
+            document.getElementById('processing-overlay').classList.add('active');
+            document.getElementById('proc-title').innerText = title;
+            updateLoader(0, "Initialisation...");
+        }
+
+        function hideLoader() {
+            setTimeout(() => { document.getElementById('processing-overlay').classList.remove('active'); }, 500);
+        }
+
+        function updateLoader(percent, message) {
+            document.getElementById('proc-bar').style.width = percent + '%';
+            document.getElementById('proc-percent').innerText = Math.round(percent) + '%';
+            if (message) document.getElementById('proc-desc').innerText = message;
+        }
+    </script>
+</body>
+
+</html>

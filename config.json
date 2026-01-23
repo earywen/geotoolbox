@@ -1,0 +1,23 @@
+{
+    "app": {
+        "log_level": "INFO",
+        "log_file": "burgeaply.log",
+        "debug": true
+    },
+    "network": {
+        "verify_ssl": true,
+        "timeout": 60,
+        "user_agent": "BurgeaplyHub/2.0"
+    },
+    "geotoolbox": {
+        "georisques_url": "https://georisques.gouv.fr/services",
+        "brgm_wfs_url": "https://geoservices.brgm.fr/geologie",
+        "ign_wfs_url": "https://data.geopf.fr/wfs/ows",
+        "infoterre_url": "http://ficheinfoterre.brgm.fr/InfoterreFiche/ficheBss.action?id="
+    },
+    "orthohisto": {
+        "wms_url": "https://data.geopf.fr/wms-r/wms",
+        "wfs_url": "https://data.geopf.fr/wfs/ows",
+        "download_url": "https://data.geopf.fr/telechargement/download/pva"
+    }
+}

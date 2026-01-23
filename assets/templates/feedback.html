@@ -1,0 +1,122 @@
+<style>
+    .modern-form {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    textarea.input-pill {
+        border-radius: 16px;
+        min-height: 120px;
+        resize: vertical;
+        padding: 15px;
+        line-height: 1.5;
+    }
+
+    select.input-pill {
+        appearance: none;
+        -webkit-appearance: none;
+        cursor: pointer;
+        background-color: rgba(15, 23, 42, 0.6);
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='white'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 15px center;
+        background-size: 16px;
+    }
+
+    option {
+        background: var(--bg-panel);
+        color: white;
+    }
+</style>
+
+<div style="display:flex; justify-content:center; align-items:center; height:100%; width:100%;">
+
+    <div class="glass-panel slide-in-panel"
+        style="width: 500px; padding: 40px; border-radius: 24px; position: relative;">
+
+        <!-- Decorative Glow -->
+        <div
+            style="position: absolute; top: -50px; left: 50%; transform: translateX(-50%); width: 200px; height: 100px; background: var(--accent); filter: blur(80px); opacity: 0.2; pointer-events: none;">
+        </div>
+
+        <div style="text-align:center; margin-bottom:30px;">
+            <div style="margin-bottom: 15px; font-size:40px;">📢</div>
+            <h2 style="margin:0; font-size:24px;">Feedback</h2>
+            <p class="text-muted" style="font-size:14px; margin-top:5px;">
+                Une idée ? Un bug ? Envoyez-le directement sur Discord.
+            </p>
+        </div>
+
+        <div class="modern-form">
+            <div style="display: flex; gap: 15px;">
+                <div class="form-group" style="flex: 1;">
+                    <label>Trigramme</label>
+                    <input type="text" id="fb_trigram" class="input-pill" placeholder="XXX" maxlength="5"
+                        style="text-transform:uppercase; text-align:center;">
+                </div>
+                <div class="form-group" style="flex: 2;">
+                    <label>Sujet</label>
+                    <select id="fb_category" class="input-pill">
+                        <option value="idea">💡 Suggestion</option>
+                        <option value="bug">🪲 Bug</option>
+                        <option value="other">✉️ Autre</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Message</label>
+                <textarea id="fb_message" class="input-pill" placeholder="Décrivez votre idée..."></textarea>
+            </div>
+
+            <button onclick="sendFeedback()" class="btn-glow"
+                style="width:100%; justify-content:center; margin-top:10px;">
+                Envoyer le message
+            </button>
+        </div>
+
+        <div id="fb_status"
+            style="margin-top:20px; text-align:center; font-size:13px; min-height:20px; font-weight:500;"></div>
+
+    </div>
+</div>
+
+<script>
+    function sendFeedback() {
+        var trigram = document.getElementById('fb_trigram').value.trim();
+        var cat = document.getElementById('fb_category').value;
+        var msg = document.getElementById('fb_message').value;
+        var status = document.getElementById('fb_status');
+
+        if (trigram.length < 2) {
+            status.innerHTML = "<span style='color:var(--error)'>⚠️ Merci de renseigner votre Trigramme.</span>";
+            return;
+        }
+        if (msg.length < 5) {
+            status.innerHTML = "<span style='color:var(--error)'>⚠️ Le message est trop court !</span>";
+            return;
+        }
+
+        status.innerHTML = "<span class='text-muted'>🚀 Envoi en cours...</span>";
+
+        pywebview.api.run_send_feedback(cat, msg, trigram, "").then(res => {
+            if (res.success) {
+                status.innerHTML = "<span style='color:var(--success)'>✅ Message envoyé ! Merci.</span>";
+                document.getElementById('fb_message').value = "";
+            } else {
+                status.innerHTML = "<span style='color:var(--error)'>❌ Erreur : " + res.msg + "</span>";
+            }
+        });
+    }
+</script>

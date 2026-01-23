@@ -1,0 +1,377 @@
+<style>
+    /* CARTOGRAPHIE MODULE STYLES */
+    #cartographie-container {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        background: #1e293b;
+    }
+
+    #carto-map-container {
+        position: absolute;
+        inset: 0;
+        z-index: 0;
+    }
+
+    #cartoMap {
+        width: 100%;
+        height: 100%;
+    }
+
+    #carto-sidebar {
+        position: absolute;
+        top: 20px;
+        bottom: 20px;
+        left: 100px;
+        width: 400px;
+        z-index: 1000;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        border-radius: 20px;
+    }
+
+    #carto-scroll-area {
+        overflow-y: auto;
+        overflow-x: hidden;
+        padding: 25px;
+        height: 100%;
+    }
+
+    .carto-section {
+        margin-bottom: 20px;
+    }
+
+    .carto-section-title {
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: var(--text-muted);
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .carto-card {
+        background: rgba(15, 23, 42, 0.6);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 12px;
+        padding: 15px;
+    }
+
+    .carto-checkbox-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 8px;
+        padding: 8px 12px;
+        background: rgba(30, 41, 59, 0.4);
+        border-radius: 8px;
+        transition: background 0.2s;
+    }
+
+    .carto-checkbox-wrapper:hover {
+        background: rgba(30, 41, 59, 1);
+    }
+
+    .carto-checkbox-wrapper input[type="checkbox"] {
+        accent-color: var(--accent);
+        width: 16px;
+        height: 16px;
+        cursor: pointer;
+    }
+
+    .carto-checkbox-wrapper label {
+        cursor: pointer;
+        font-weight: 500;
+        font-size: 13px;
+        flex: 1;
+    }
+
+    .layers-scroll {
+        max-height: 200px;
+        overflow-y: auto;
+        padding-right: 5px;
+        margin-bottom: 10px;
+    }
+
+    .raster-options {
+        background: rgba(59, 130, 246, 0.1);
+        border: 1px solid rgba(59, 130, 246, 0.3);
+        border-radius: 8px;
+        padding: 12px;
+        margin-top: 10px;
+    }
+
+    .raster-options .carto-checkbox-wrapper {
+        background: transparent;
+        padding: 6px 0;
+        margin-bottom: 4px;
+    }
+
+    .raster-options .carto-checkbox-wrapper:hover {
+        background: rgba(59, 130, 246, 0.15);
+    }
+
+    .export-options {
+        background: rgba(34, 197, 94, 0.1);
+        border: 1px solid rgba(34, 197, 94, 0.3);
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 15px;
+    }
+
+    .export-options .carto-checkbox-wrapper {
+        background: transparent;
+        padding: 6px 0;
+        margin-bottom: 4px;
+    }
+
+    #cartoLogs {
+        margin-top: 15px;
+        font-size: 11px;
+        font-family: 'Consolas', monospace;
+        color: #cbd5e1;
+        min-height: 80px;
+        max-height: 150px;
+        overflow-y: auto;
+        background: rgba(15, 23, 42, 0.8);
+        padding: 10px;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .log-item {
+        padding: 4px 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .log-item:last-child {
+        border-bottom: none;
+    }
+
+    .log-success {
+        color: #22c55e;
+    }
+
+    .log-error {
+        color: #ef4444;
+    }
+
+    .log-info {
+        color: #38bdf8;
+    }
+
+    /* Mode Toggle Buttons */
+    .mode-toggle {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 15px;
+    }
+
+    .btn-mode {
+        flex: 1;
+        padding: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        background: rgba(30, 41, 59, 0.6);
+        color: var(--text);
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 500;
+        transition: all 0.2s;
+    }
+
+    .btn-mode:hover {
+        background: rgba(30, 41, 59, 0.9);
+    }
+
+    .btn-mode.active {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: white;
+    }
+
+    /* Emprise Info Panel */
+    .emprise-info {
+        background: rgba(34, 197, 94, 0.15);
+        border: 1px solid rgba(34, 197, 94, 0.3);
+        border-radius: 8px;
+        padding: 12px;
+        margin-top: 12px;
+        display: none;
+    }
+
+    .emprise-info.visible {
+        display: block;
+    }
+
+    .emprise-info strong {
+        color: #22c55e;
+        font-size: 12px;
+    }
+
+    .emprise-info .emprise-details {
+        font-size: 12px;
+        color: var(--text-muted);
+        margin-top: 5px;
+    }
+
+    .btn-mini {
+        margin-top: 8px;
+        padding: 5px 12px;
+        font-size: 11px;
+        background: rgba(239, 68, 68, 0.2);
+        border: 1px solid rgba(239, 68, 68, 0.4);
+        color: #ef4444;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+
+    .btn-mini:hover {
+        background: rgba(239, 68, 68, 0.4);
+    }
+
+    /* Radius Container - hidden in polygon mode */
+    #radiusContainer.hidden {
+        display: none;
+    }
+
+    /* Leaflet Draw Customization */
+    .leaflet-draw-toolbar a {
+        background-color: rgba(30, 41, 59, 0.95) !important;
+    }
+
+    .leaflet-draw-toolbar a:hover {
+        background-color: var(--accent) !important;
+    }
+</style>
+
+<div id="cartographie-container">
+    <!-- MAP -->
+    <div id="carto-map-container">
+        <div id="cartoMap"></div>
+    </div>
+
+    <!-- SIDEBAR -->
+    <div id="carto-sidebar" class="glass-panel slide-in-panel">
+        <div id="carto-scroll-area">
+            <!-- HEADER -->
+            <h2 style="display: flex; align-items: center; gap: 10px; margin-bottom: 5px;">
+                <span class="text-accent">🗺️</span> Cartographie
+            </h2>
+            <p class="text-muted" style="font-size: 12px; margin-bottom: 25px; line-height: 1.5;">
+                Extraction unifiée : données vectorielles + photos aériennes historiques.
+            </p>
+
+            <!-- SECTION 1: ZONE D'ÉTUDE -->
+            <div class="carto-section">
+                <div class="carto-section-title">
+                    <span>📍</span> 1. Zone d'étude
+                </div>
+                <div class="carto-card">
+                    <!-- Mode Toggle -->
+                    <div class="mode-toggle">
+                        <button id="modeCircle" class="btn-mode active" onclick="carto_setMode('circle')">
+                            ⭕ Cercle
+                        </button>
+                        <button id="modePolygon" class="btn-mode" onclick="carto_setMode('polygon')">
+                            📐 Polygone
+                        </button>
+                    </div>
+
+                    <div class="input-group" style="margin-bottom: 12px;">
+                        <input type="text" id="cartoCoords" class="input-pill" readonly
+                            placeholder="Cliquez sur la carte..."
+                            style="text-align: center; color: var(--accent); font-weight: bold;">
+                    </div>
+
+                    <!-- Radius Container (hidden in polygon mode) -->
+                    <div id="radiusContainer">
+                        <div
+                            style="display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 12px; font-weight: 600;">
+                            <label>Rayon de recherche</label>
+                            <span id="cartoRadiusDisplay" class="text-accent">500 m</span>
+                        </div>
+                        <input type="range" id="cartoRadius" min="100" max="5000" step="100" value="500"
+                            style="width: 100%; accent-color: var(--accent);" oninput="carto_updateRadius()">
+                    </div>
+
+                    <!-- Emprise Info (shown when polygon is drawn) -->
+                    <div id="empriseInfo" class="emprise-info">
+                        <strong>📐 Emprise définie</strong>
+                        <div id="empriseDetails" class="emprise-details">-</div>
+                        <button class="btn-mini" onclick="carto_clearEmprise()">✕ Effacer l'emprise</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECTION 2: COUCHES VECTORIELLES -->
+            <div class="carto-section">
+                <div class="carto-section-title">
+                    <span>📊</span> 2. Données vectorielles
+                </div>
+                <div class="carto-card">
+                    <div class="layers-scroll" id="carto-layers-list">
+                        {{CHECKBOXES}}
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECTION 3: PHOTOS AÉRIENNES -->
+            <div class="carto-section">
+                <div class="carto-section-title">
+                    <span>🛩️</span> 3. Photos aériennes
+                </div>
+                <div class="raster-options">
+                    <div class="carto-checkbox-wrapper">
+                        <input type="checkbox" id="includePVA" checked>
+                        <label for="includePVA">Photos historiques (PVA 1920-2024)</label>
+                    </div>
+                    <div class="carto-checkbox-wrapper">
+                        <input type="checkbox" id="includeMosaics" checked>
+                        <label for="includeMosaics">Mosaïques IGN géoréférencées</label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECTION 4: EXPORT -->
+            <div class="carto-section">
+                <div class="carto-section-title">
+                    <span>💾</span> 4. Export
+                </div>
+
+                <div class="input-group" style="margin-bottom: 15px;">
+                    <input type="text" id="cartoTargetPath" class="input-pill" readonly placeholder="Dossier cible...">
+                    <button class="btn-icon-input" onclick="carto_browseFolder()">📂</button>
+                </div>
+
+                <div class="export-options">
+                    <div class="carto-checkbox-wrapper">
+                        <input type="checkbox" id="exportQGIS">
+                        <label for="exportQGIS" style="color: #22c55e;">🗺️ Générer projet QGIS (.qgz)</label>
+                    </div>
+                    <div class="carto-checkbox-wrapper">
+                        <input type="checkbox" id="exportEmprise" checked>
+                        <label for="exportEmprise" style="color: #22c55e;">📐 Exporter emprise du site</label>
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+                    <button class="btn-secondary" onclick="carto_runPreview()">
+                        👁️ Aperçu
+                    </button>
+                    <button class="btn-glow" onclick="carto_runExport()">
+                        🚀 Exporter
+                    </button>
+                </div>
+
+                <div id="cartoLogs">
+                    <div class="log-item log-info">En attente de sélection...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
