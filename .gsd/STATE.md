@@ -1,12 +1,12 @@
 # STATE.md — Project Memory
 
-> Last updated: 2026-01-23T16:20:00+01:00
+> Last updated: 2026-01-23T16:29:00+01:00
 
 ## Current Position
 
-- **Phase:** Phase 3 — Dessin de Polygone ✅ COMPLETE (Refactored)
+- **Phase:** Phase 3 — Dessin de Polygone ✅ COMPLETE
 - **Milestone:** v2.2.0 "Cartographie Unifiée"
-- **Status:** Ready for Phase 4
+- **Status:** Paused (Ready for Phase 4)
 
 ---
 
@@ -21,42 +21,17 @@
 
 ---
 
-## Changes Made in Phase 3 (Refactor)
+## Session Summary
 
-### Files Modified
+**Session terminée avec succès.**
+Le module Cartographie est fonctionnel avec le nouveau workflow "Polygone -> Centre -> Rayon".
+Le code est commité et pushé sur `dev-2`.
 
-| File | Changes |
-|------|---------|
-| `assets/templates/cartographie.html` | -toggle buttons, +simplified instructions |
-| `assets/js/cartographie.js` | Refonte complète : Polygon -> Center -> Search Radius |
-
-### Features (New Workflow)
-
-- **Workflow:** Dessin Polygone -> Calcul Centre -> Rayon de Recherche
-- **UI:** Plus de bouton "Mode", dessin activé par défaut via barre outils
-- **Extraction:**
-    - Données cherchées dans le cercle (Rayon)
-    - Emprise exportée = Polygone dessiné
-
----
-
-## Completed Phases
-
-| Phase | Name | Status |
-|-------|------|--------|
-| 1 | Fondations Backend | ✅ Complete |
-| 2 | Fusion UI Frontend | ✅ Complete |
-| 3 | Dessin de Polygone | ✅ Complete |
-| 4 | Export Unifié | ⬜ Not Started |
-| 5 | Tests & Cleanup | ⬜ Not Started |
-
----
-
-## Next Steps
+## Next Steps (Next Session)
 
 1. **Phase 4:** Export Unifié
-   - Génération projet QGIS (.qgz)
-   - Rapport d'export
+   - Génération du projet QGIS (.qgz)
+   - Organisation propre des dossiers (vecteurs/rasters/rapports)
 
 2. **Phase 5:** Tests & Cleanup
 
