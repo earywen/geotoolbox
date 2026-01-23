@@ -240,12 +240,30 @@
     }
 
     /* Leaflet Draw Customization */
+    .leaflet-draw-toolbar {
+        margin-top: 12px !important;
+    }
+
     .leaflet-draw-toolbar a {
-        background-color: rgba(30, 41, 59, 0.95) !important;
+        background-color: #f1f5f9 !important;
+        /* Light background */
+        border-color: #cbd5e1 !important;
+        color: #0f172a !important;
+        /* Dark icon */
+        background-image: none !important;
+        /* Remove sprite if needed, but sprites are usually dark. */
+        /* Actually sprites rely on background-image. Let's keep bg image but change bg color. */
+        background-color: white !important;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
     }
 
     .leaflet-draw-toolbar a:hover {
-        background-color: var(--accent) !important;
+        background-color: #e2e8f0 !important;
+    }
+
+    /* Force icons to be visible if they are SVG or images */
+    .leaflet-draw-toolbar a {
+        filter: none !important;
     }
 </style>
 
@@ -272,27 +290,22 @@
                     <span>📍</span> 1. Zone d'étude
                 </div>
                 <div class="carto-card">
-                    <!-- Mode Toggle -->
-                    <div class="mode-toggle">
-                        <button id="modeCircle" class="btn-mode active" onclick="carto_setMode('circle')">
-                            ⭕ Cercle
-                        </button>
-                        <button id="modePolygon" class="btn-mode" onclick="carto_setMode('polygon')">
-                            📐 Polygone
-                        </button>
-                    </div>
+                    <p class="text-muted" style="font-size: 11px; margin-bottom: 10px;">
+                        1. Dessinez l'emprise du site sur la carte (boutons en haut à droite).<br>
+                        2. Ajustez le rayon de recherche autour du site.
+                    </p>
 
                     <div class="input-group" style="margin-bottom: 12px;">
                         <input type="text" id="cartoCoords" class="input-pill" readonly
-                            placeholder="Cliquez sur la carte..."
+                            placeholder="En attente de dessin..."
                             style="text-align: center; color: var(--accent); font-weight: bold;">
                     </div>
 
-                    <!-- Radius Container (hidden in polygon mode) -->
+                    <!-- Radius Container -->
                     <div id="radiusContainer">
                         <div
                             style="display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 12px; font-weight: 600;">
-                            <label>Rayon de recherche</label>
+                            <label>Rayon de recherche (autour du centre)</label>
                             <span id="cartoRadiusDisplay" class="text-accent">500 m</span>
                         </div>
                         <input type="range" id="cartoRadius" min="100" max="5000" step="100" value="500"
@@ -300,6 +313,11 @@
                     </div>
 
                     <!-- Emprise Info (shown when polygon is drawn) -->
+                    <div id="empriseInfo" class="emprise-info">
+                        <strong>📐 Emprise définie</strong>
+                        <div id="empriseDetails" class="emprise-details">-</div>
+                        <button class="btn-mini" onclick="carto_clearEmprise()">✕ Effacer tout</button>
+                    </div>
                     <div id="empriseInfo" class="emprise-info">
                         <strong>📐 Emprise définie</strong>
                         <div id="empriseDetails" class="emprise-details">-</div>

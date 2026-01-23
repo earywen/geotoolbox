@@ -1,42 +1,42 @@
 # STATE.md — Project Memory
 
-> Last updated: 2026-01-23T15:50:00+01:00
+> Last updated: 2026-01-23T16:20:00+01:00
 
 ## Current Position
 
-- **Phase:** Phase 3 — Dessin de Polygone ✅ COMPLETE
+- **Phase:** Phase 3 — Dessin de Polygone ✅ COMPLETE (Refactored)
 - **Milestone:** v2.2.0 "Cartographie Unifiée"
 - **Status:** Ready for Phase 4
 
 ---
 
-## Phase 3 Final Status
+## Phase 3 Final Status (Refactored)
 
 | Plan | Name | Status |
 |------|------|--------|
 | 3.1 | Intégrer Leaflet.Draw | ✅ Complete |
 | 3.2 | Implémenter le dessin de polygone | ✅ Complete |
 | 3.3 | Connecter à l'export | ✅ Complete |
+| 3.4 | Refonte Logique Zone d'Étude | ✅ Complete |
 
 ---
 
-## Changes Made in Phase 3
+## Changes Made in Phase 3 (Refactor)
 
 ### Files Modified
 
 | File | Changes |
 |------|---------|
-| `assets/index.html` | +Leaflet.Draw CSS/JS CDN |
-| `assets/templates/cartographie.html` | +mode toggle, +emprise info, +styles |
-| `assets/js/cartographie.js` | +initDrawControls(), +setMode(), +updateEmpriseInfo(), +clearEmprise() |
+| `assets/templates/cartographie.html` | -toggle buttons, +simplified instructions |
+| `assets/js/cartographie.js` | Refonte complète : Polygon -> Center -> Search Radius |
 
-### Features Added
+### Features (New Workflow)
 
-- ⭕ Mode cercle (défaut) - rayon ajustable
-- 📐 Mode polygone - dessin libre sur la carte
-- Surface approximative affichée (m² ou ha)
-- Export priorise le polygone dessiné si disponible
-- Bouton pour effacer l'emprise
+- **Workflow:** Dessin Polygone -> Calcul Centre -> Rayon de Recherche
+- **UI:** Plus de bouton "Mode", dessin activé par défaut via barre outils
+- **Extraction:**
+    - Données cherchées dans le cercle (Rayon)
+    - Emprise exportée = Polygone dessiné
 
 ---
 
@@ -56,21 +56,8 @@
 
 1. **Phase 4:** Export Unifié
    - Génération projet QGIS (.qgz)
-   - Structure de dossier organisée
-   - Rapport d'export (summary.json)
+   - Rapport d'export
 
 2. **Phase 5:** Tests & Cleanup
-   - Supprimer anciens modules
-   - Tests de non-régression
 
 ---
-
-## Session Summary
-
-**Phases 1-3 terminées**
-
-Le module Cartographie est maintenant fonctionnel avec :
-- Backend unifié (vecteurs + rasters)
-- Frontend unifié avec carte Leaflet
-- Dessin de polygone pour définir l'emprise du site
-- Export avec emprise exacte (polygone ou cercle)

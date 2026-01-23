@@ -338,7 +338,7 @@ def run_export_logic(
             'max_lon': c_lon + lon_range/2
         }
         
-        for label, layer in IGN_MOSAICS[-3:]:  # Only most recent mosaics
+        for label, layer in IGN_MOSAICS:  # Try all available mosaics
             fname = os.path.join(ortho_dir, f"{label}_Mosaic.png")
             result = download_wms(layer, fname, wms_bbox, bbox_dict)
             if result == "OK":
@@ -364,9 +364,24 @@ def run_export_logic(
 # 5. UI LOADER
 # ==========================================
 def get_ui_content() -> str:
-    """Returns the HTML fragment for the Cartographie module."""
+    """Returns the HTML fragment for the Cartographie module with dynamic checkboxes."""
     try:
-        return core.load_template("cartographie.html")
+        html = core.load_template("cartographie.html")
+        
+        # Generate Checkboxes
+        checkboxes_html = ""
+        for k, c in LAYERS_CONFIG.items():
+            color = c.get("color", "#cbd5e1")
+            label = c.get("label", k)
+            # Use carto-checkbox-wrapper class defined in template CSS
+            checkboxes_html += f'''
+            <div class="carto-checkbox-wrapper">
+                <input type="checkbox" id="chk_{k}" value="{k}" checked>
+                <label for="chk_{k}" style="color:{color}">{label}</label>
+            </div>
+            '''
+            
+        return html.replace("{{CHECKBOXES}}", checkboxes_html)
+        
     except FileNotFoundError:
-        # Fallback until template is created in Phase 2
-        return "<div class='placeholder'>Module Cartographie en construction</div>"
+        return "<div class='placeholder'>Erreur: Template cartographie.html introuvable</div>"
