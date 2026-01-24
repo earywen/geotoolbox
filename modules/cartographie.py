@@ -225,7 +225,7 @@ def run_export_logic(
         opts.include_vectors = options.get('include_vectors', True)
         opts.include_rasters = options.get('include_rasters', True)
         opts.include_emprise = options.get('include_emprise', True)
-        opts.generate_qgis = options.get('generate_qgis', False)
+
 
     path = _prepare_export_directory(folder_name, base_path_ui)
     summary: List[Dict[str, Any]] = []
@@ -235,19 +235,48 @@ def run_export_logic(
         reporter = CoreEventReporter()
 
     # --- ÉTAPE 0 : EXPORT EMPRISE (si fournie) ---
+    vector_files_for_qgis = []
+    
     if opts.include_emprise and emprise_geojson:
-        emprise_path = _export_emprise(emprise_geojson, path)
-        if emprise_path:
+        # Save directly to 'vecteurs' subfolder
+        vecteurs_dir = os.path.join(path, "vecteurs")
+        os.makedirs(vecteurs_dir, exist_ok=True)
+        emprise_path = os.path.join(vecteurs_dir, "emprise_site.geojson")
+        
+        # Manually save export (avoid reuse of broken _export_emprise for pathing reasons if strict)
+        # Using helper if cleaner:
+        final_emp_path = _export_emprise(emprise_geojson, vecteurs_dir) 
+        
+        if final_emp_path:
+            # Generate Style for Emprise (Contour Rouge Épais, Fond Transparent)
+            try:
+                from modules.qgis_export.style_generator import generate_qml_polygon
+                emp_qml = final_emp_path.replace('.geojson', '.qml')
+                # fill_style='no' means transparent fill
+                generate_qml_polygon(emp_qml, color='#ef4444', outline_color='#ef4444', outline_width=0.8, opacity=0, fill_style='no')
+            except ImportError as e:
+                logging.error(f"Could not gen emprise style: {e}")
+                
             summary.append({"status": "success", "layer": "Emprise du site", "type": "emprise"})
-            geojson_paths.append(emprise_path)
+            vector_files_for_qgis.append(final_emp_path)
 
     # --- ÉTAPE 1 : ANALYSE GLOBALE (0-10%) ---
     if opts.include_vectors and layers_list:
         logging.info("--- DÉBUT ANALYSE GLOBALE ---")
-        slope_azimut, z_center = _perform_global_analysis(bbox, reporter)
+        try:
+            slope_azimut, z_center = _perform_global_analysis(bbox, reporter)
+        except Exception as e:
+            logging.error(f"Global analysis failed: {e}")
+            slope_azimut, z_center = 0, 0
 
         # --- ÉTAPE 2 : BOUCLE SUR LES COUCHES VECTORIELLES (10-50%) ---
         total_layers = len(layers_list)
+        
+        # Prepare subfolders
+        vecteurs_dir = os.path.join(path, "vecteurs")
+        rapport_dir = os.path.join(path, "rapport")
+        os.makedirs(vecteurs_dir, exist_ok=True)
+        os.makedirs(rapport_dir, exist_ok=True)
 
         for i, layer_key in enumerate(layers_list):
             config = LAYERS_CONFIG.get(layer_key)
@@ -265,16 +294,71 @@ def run_export_logic(
                     rows = calculate_geometrics(rows, bbox, slope_azimut, z_center)
 
                 # Excel export
-                fname = generate_excel_for_layer(rows, layer_key, path, config)
+                fname = generate_excel_for_layer(rows, layer_key, rapport_dir, config)
                 
-                # GeoJSON export (for QGIS)
+                # GeoJSON export (always if rows exist, useful for QGIS even if QGIS opt is False)
                 geojson_path = None
-                if opts.generate_qgis and rows:
+                if rows:
                     from modules.qgis_export import export_geojson
-                    vecteurs_dir = os.path.join(path, "vecteurs")
-                    os.makedirs(vecteurs_dir, exist_ok=True)
-                    geojson_path = os.path.join(vecteurs_dir, f"{layer_key}.geojson")
-                    export_geojson(rows, geojson_path, layer_key)
+
+                    try:
+                        geojson_path = os.path.join(vecteurs_dir, f"{layer_key}.geojson")
+                        export_geojson(rows, geojson_path, layer_key)
+                        
+                        # Generate QML Style based on specific requirements
+                        qml_path = os.path.join(vecteurs_dir, f"{layer_key}.qml")
+                        
+                        from modules.qgis_export.style_generator import (
+                            generate_qml_point, 
+                            generate_qml_polygon, 
+                            generate_qml_line
+                        )
+                        
+                        if layer_key == 'SSP':
+                             # SSP: Triangle Rouge, contour noir + Label 'code_metier'
+                             generate_qml_point(qml_path, color='#ef4444', shape='triangle', size=3.6, outline_color='#000000',
+                                                label_field='code_metier', label_size=8, buffer_size=1.0)
+                             
+                        elif layer_key == 'BSS':
+                             # BSS: Cercle Bleu, contour noir + Label 'code_bss'
+                             generate_qml_point(qml_path, color='#3b82f6', shape='circle', size=3.0, outline_color='#000000',
+                                                label_field='code_bss', label_size=8, buffer_size=1.0)
+                             
+                        elif layer_key == 'SIS':
+                             # SIS: Polygone Orange + Label 'nom_etablissement'
+                             generate_qml_polygon(qml_path, color='#fb923c', outline_color='#000000', outline_width=0.4, opacity=0.6,
+                                                  label_field='nom_etablissement', label_size=8, buffer_size=1.0)
+                             
+                        elif layer_key == 'SUP':
+                             # SUP: Polygone Violet + Label 'nom_etablissement'
+                             generate_qml_polygon(qml_path, color='#d946ef', outline_color='#000000', outline_width=0.4, opacity=0.6,
+                                                  label_field='nom_etablissement', label_size=8, buffer_size=1.0)
+                             
+                        elif layer_key == 'PARCELLE':
+                             # Parcelles: Fond orange très transparent
+                             generate_qml_polygon(qml_path, color='#fdba74', outline_color='#f59e0b', outline_width=0.3, opacity=0.1)
+                             
+                        elif layer_key == 'EAU':
+                             # Cours d'eau: Ligne bleu clair + Label 'toponyme'
+                             generate_qml_line(qml_path, color='#0ea5e9', width=0.8,
+                                               label_field='toponyme', label_size=8, buffer_size=1.0)
+                             
+                        else:
+                             # Default fallback based on config type
+                             ltype = config.get('type', 'point')
+                             lcolor = config.get('color', '#888888')
+                             if ltype == 'point':
+                                 generate_qml_point(qml_path, lcolor)
+                             elif ltype == 'polygon':
+                                 generate_qml_polygon(qml_path, lcolor)
+                             else:
+                                 generate_qml_line(qml_path, lcolor)
+
+                        
+                        vector_files_for_qgis.append(geojson_path)
+                    except ImportError:
+                        # Fallback if module structure differs
+                        pass
                 
                 if fname:
                     summary.append({
@@ -285,24 +369,27 @@ def run_export_logic(
                         "geojson": geojson_path,
                         "type": "vector"
                     })
-                    if geojson_path:
-                        geojson_paths.append(geojson_path)
                         
             except Exception as e:
                 logging.error(f"Error exporting layer {layer_key}: {e}")
                 summary.append({"status": "error", "layer": config.get('label', layer_key), "error": str(e)})
 
     # --- ÉTAPE 3 : EXPORT RASTERS (50-100%) si demandé ---
+    raster_files_for_qgis = []
+    
     if opts.include_rasters:
         reporter.update(50, "Préparation téléchargement images aériennes...")
         
         # Calculate center for PVA search
-        c_lat = (float(bbox['min_lat']) + float(bbox['max_lat'])) / 2.0
-        c_lon = (float(bbox['min_lon']) + float(bbox['max_lon'])) / 2.0
-        
-        # Estimate radius from bbox
-        lat_range = float(bbox['max_lat']) - float(bbox['min_lat'])
-        lon_range = float(bbox['max_lon']) - float(bbox['min_lon'])
+        try:
+            c_lat = (float(bbox['min_lat']) + float(bbox['max_lat'])) / 2.0
+            c_lon = (float(bbox['min_lon']) + float(bbox['max_lon'])) / 2.0
+            lat_range = float(bbox['max_lat']) - float(bbox['min_lat'])
+            lon_range = float(bbox['max_lon']) - float(bbox['min_lon'])
+        except:
+             c_lat, c_lon = 0, 0
+             lat_range, lon_range = 0.01, 0.01
+
         radius_m = int(max(lat_range, lon_range) * 111111 / 2)  # Convert to meters
         radius_m = max(radius_m, 500)  # Minimum 500m
         
@@ -316,16 +403,22 @@ def run_export_logic(
             scaled_pct = 50 + (pct * 0.4)
             reporter.update(int(scaled_pct), msg)
         
-        pva_results = process_all_pva(c_lat, c_lon, ortho_dir, radius_m, 
-                                       callback=pva_callback, current_prog=0, progress_range=90)
-        
-        for res in pva_results:
-            if "OK" in res.get('status', ''):
-                summary.append({
-                    "status": "success",
-                    "layer": f"PVA {res['annee']}",
-                    "type": "raster"
-                })
+        try:
+            pva_results = process_all_pva(c_lat, c_lon, ortho_dir, radius_m, 
+                                           callback=pva_callback, current_prog=0, progress_range=90)
+            
+            for res in pva_results:
+                if "OK" in res.get('status', ''):
+                    summary.append({
+                        "status": "success",
+                        "layer": f"PVA {res['annee']}",
+                        "type": "raster"
+                    })
+                    # Add to QGIS if valid
+                    if os.path.exists(res.get('filename', '')):
+                        raster_files_for_qgis.append(res['filename'])
+        except Exception as e:
+             logging.error(f"PVA Error: {e}")
         
         # Download mosaics (90-100%)
         reporter.update(90, "Téléchargement mosaïques géoréférencées...")
@@ -340,6 +433,7 @@ def run_export_logic(
         
         for label, layer in IGN_MOSAICS:  # Try all available mosaics
             fname = os.path.join(ortho_dir, f"{label}_Mosaic.png")
+            # Worldfile is implicitly created by download_wms
             result = download_wms(layer, fname, wms_bbox, bbox_dict)
             if result == "OK":
                 summary.append({
@@ -347,8 +441,9 @@ def run_export_logic(
                     "layer": f"Mosaïque {label}",
                     "type": "raster"
                 })
+                raster_files_for_qgis.append(fname)
+                
 
-    reporter.update(100, 'Export terminé !')
     time.sleep(0.5)
 
     return {

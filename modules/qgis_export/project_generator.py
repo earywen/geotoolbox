@@ -20,8 +20,50 @@ def _generate_layer_id(layer_name: str) -> str:
     return f"{layer_name.replace(' ', '_')}_{uid}"
 
 
+def _get_mercator_bounds(min_lat, min_lon, max_lat, max_lon):
+    """Convert LatLon bbox to Web Mercator (EPSG:3857) bounds roughly."""
+    import math
+    
+    def lat_to_y(lat):
+        if lat > 89.5: lat = 89.5
+        if lat < -89.5: lat = -89.5
+        return math.log(math.tan(math.pi / 4 + math.radians(lat) / 2)) * 6378137
+
+    def lon_to_x(lon):
+        return math.radians(lon) * 6378137
+
+    return (
+        lon_to_x(min_lon),
+        lat_to_y(min_lat),
+        lon_to_x(max_lon),
+        lat_to_y(max_lat)
+    )
+
+
+
+
+def _get_mercator_bounds(min_lat, min_lon, max_lat, max_lon):
+    """Convert LatLon bbox to Web Mercator (EPSG:3857) bounds roughly."""
+    import math
+    
+    def lat_to_y(lat):
+        if lat > 89.5: lat = 89.5
+        if lat < -89.5: lat = -89.5
+        return math.log(math.tan(math.pi / 4 + math.radians(lat) / 2)) * 6378137
+
+    def lon_to_x(lon):
+        return math.radians(lon) * 6378137
+
+    return (
+        lon_to_x(min_lon),
+        lat_to_y(min_lat),
+        lon_to_x(max_lon),
+        lat_to_y(max_lat)
+    )
+
+
 def _get_vector_layer_xml(layer_path: str, layer_name: str, layer_id: str) -> str:
-    """Create vector layer XML."""
+    """Create vector layer XML (Generic Extent)."""
     colors = {
         "BSS": "31,120,180,255",
         "SSP": "227,26,28,255", 
@@ -30,21 +72,9 @@ def _get_vector_layer_xml(layer_path: str, layer_name: str, layer_id: str) -> st
     }
     color = colors.get(layer_name, "51,160,44,255")
     
-    return f'''<maplayer simplifyLocal="1" autoRefreshTime="0" readOnly="0" type="vector" refreshOnNotifyMessage="" legendPlaceholderImage="" symbologyReferenceScale="-1" styleCategories="AllStyleCategories" labelsEnabled="0" geometry="Point" autoRefreshMode="Disabled" wkbType="Point" hasScaleBasedVisibilityFlag="0" refreshOnNotifyEnabled="0" simplifyAlgorithm="0" simplifyDrawingHints="0" maxScale="0" minScale="100000000" simplifyDrawingTol="1" simplifyMaxScale="1">
-      <extent>
-        <xmin>-180</xmin>
-        <ymin>-90</ymin>
-        <xmax>180</xmax>
-        <ymax>90</ymax>
-      </extent>
-      <wgs84extent>
-        <xmin>-180</xmin>
-        <ymin>-90</ymin>
-        <xmax>180</xmax>
-        <ymax>90</ymax>
-      </wgs84extent>
+    return f'''<maplayer simplifyLocal="1" autoRefreshTime="0" readOnly="0" type="vector" refreshOnNotifyMessage="" legendPlaceholderImage="" symbologyReferenceScale="-1" styleCategories="AllStyleCategories" labelsEnabled="0" geometry="Unknown" autoRefreshMode="Disabled" wkbType="Unknown" hasScaleBasedVisibilityFlag="0" refreshOnNotifyEnabled="0" simplifyAlgorithm="0" simplifyDrawingHints="0" maxScale="0" minScale="100000000" simplifyDrawingTol="1" simplifyMaxScale="1">
       <id>{layer_id}</id>
-      <datasource>./{layer_path}</datasource>
+      <datasource>{layer_path}</datasource>
       <layername>{layer_name}</layername>
       <srs>
         <spatialrefsys nativeFormat="Wkt">
@@ -60,10 +90,6 @@ def _get_vector_layer_xml(layer_path: str, layer_name: str, layer_id: str) -> st
         </spatialrefsys>
       </srs>
       <provider encoding="UTF-8">ogr</provider>
-      <vectorjoins/>
-      <layerDependencies/>
-      <dataDependencies/>
-      <expressionfields/>
       <map-layer-style-manager current="default">
         <map-layer-style name="default"/>
       </map-layer-style-manager>
@@ -89,15 +115,9 @@ def _get_vector_layer_xml(layer_path: str, layer_name: str, layer_id: str) -> st
                 <Option type="QString" value="MM" name="size_unit"/>
                 <Option type="QString" value="1" name="vertical_anchor_point"/>
               </Option>
-              <data_defined_properties>
-                <Option type="Map">
-                  <Option type="QString" value="" name="name"/>
-                  <Option name="properties"/>
-                  <Option type="QString" value="collection" name="type"/>
-                </Option>
-              </data_defined_properties>
             </layer>
           </symbol>
+          <!-- Additional generic symbols can be added here if needed, but keeping it simple -->
         </symbols>
       </renderer-v2>
       <blendMode>0</blendMode>
@@ -105,9 +125,37 @@ def _get_vector_layer_xml(layer_path: str, layer_name: str, layer_id: str) -> st
     </maplayer>'''
 
 
-def _get_xyz_layer_xml(url: str, layer_name: str, layer_id: str, zmax: int = 19) -> str:
-    """Create XYZ tile layer XML for QGIS 3.34+."""
+
+def _get_raster_layer_xml(layer_path: str, layer_name: str, layer_id: str) -> str:
+    """Create raster layer XML (Generic Extent)."""
     return f'''<maplayer autoRefreshTime="0" type="raster" refreshOnNotifyMessage="" legendPlaceholderImage="" styleCategories="AllStyleCategories" autoRefreshMode="Disabled" hasScaleBasedVisibilityFlag="0" refreshOnNotifyEnabled="0" maxScale="0" minScale="1e+08">
+      <id>{layer_id}</id>
+      <datasource>{layer_path}</datasource>
+      <layername>{layer_name}</layername>
+      <provider>gdal</provider>
+      <pipe>
+        <provider>
+          <resampling zoomedInResamplingMethod="nearestNeighbour" enabled="false" maxOversampling="2" zoomedOutResamplingMethod="nearestNeighbour"/>
+        </provider>
+        <rasterrenderer opacity="1" nodataColor="" alphaBand="-1" type="multibandcolor">
+          <rasterTransparency/>
+          <redBand>1</redBand>
+          <greenBand>2</greenBand>
+          <blueBand>3</blueBand>
+        </rasterrenderer>
+      </pipe>
+    </maplayer>'''
+
+
+def _get_xyz_layer_xml(url: str, layer_name: str, layer_id: str, zmax: int = 19) -> str:
+    """Create XYZ tile layer XML (Full World Extent)."""
+    return f'''<maplayer autoRefreshTime="0" type="raster" refreshOnNotifyMessage="" legendPlaceholderImage="" styleCategories="AllStyleCategories" autoRefreshMode="Disabled" hasScaleBasedVisibilityFlag="0" refreshOnNotifyEnabled="0" maxScale="0" minScale="1e+08">
+      <extent>
+        <xmin>-20037508.342789244</xmin>
+        <ymin>-20037508.342789255</ymin>
+        <xmax>20037508.342789244</xmax>
+        <ymax>20037508.342789244</ymax>
+      </extent>
       <id>{layer_id}</id>
       <datasource>crs=EPSG:3857&amp;format&amp;type=xyz&amp;url={url}&amp;zmax={zmax}&amp;zmin=0</datasource>
       <layername>{layer_name}</layername>
@@ -162,7 +210,8 @@ def generate_qgis_project(
     project_path: str,
     vector_layers: List[str] = None,
     raster_layers: List[str] = None,
-    project_name: str = "GeoToolbox Export"
+    project_name: str = "GeoToolbox Export",
+    bbox: Dict = None
 ) -> bool:
     """Generate a QGIS 3.34+ compatible project file (.qgz)."""
     vector_layers = vector_layers or []
@@ -179,168 +228,115 @@ def generate_qgis_project(
         for vpath in vector_layers:
             layer_name = os.path.splitext(os.path.basename(vpath))[0]
             layer_id = _generate_layer_id(layer_name)
+            
+            # Normalize path to POSIX for QGIS XML
             rel_path = os.path.relpath(vpath, os.path.dirname(project_path))
+            rel_path = rel_path.replace('\\', '/')
             
             map_layers_xml.append(_get_vector_layer_xml(rel_path, layer_name, layer_id))
             data_tree_xml.append(_get_layer_tree_item(layer_name, layer_id, True, "ogr"))
+            
+        # Raster layers
+        for rpath in raster_layers:
+            layer_name = os.path.splitext(os.path.basename(rpath))[0]
+            layer_id = _generate_layer_id(layer_name)
+            
+            rel_path = os.path.relpath(rpath, os.path.dirname(project_path))
+            rel_path = rel_path.replace('\\', '/')
+            
+            map_layers_xml.append(_get_raster_layer_xml(rel_path, layer_name, layer_id))
+            data_tree_xml.append(_get_layer_tree_item(layer_name, layer_id, True, "gdal"))
         
         # Basemaps
         basemaps = [
-            ("OpenStreetMap", "https://tile.openstreetmap.org/%7Bz%7D/%7Bx%7D/%7By%7D.png", 19, True),
-            ("Google Satellite", "https://mt1.google.com/vt/lyrs%3Ds%26x%3D%7Bx%7D%26y%3D%7By%7D%26z%3D%7Bz%7D", 20, False),
+            ("OpenStreetMap", "https://tile.openstreetmap.org/{z}/{x}/{y}.png", 19, True),
+            ("Google Satellite", "https://mt1.google.com/vt/lyrs=s&amp;x={x}&amp;y={y}&amp;z={z}", 20, False),
         ]
         
         for name, url, zmax, checked in basemaps:
             layer_id = _generate_layer_id(name.replace(" ", "_"))
             basemap_layers_xml.append(_get_xyz_layer_xml(url, name, layer_id, zmax))
             basemap_tree_xml.append(_get_layer_tree_item(name, layer_id, checked, "wms"))
-        
-        # Build full project XML
+            
+        # Calculate Extent (Default to World if None)
+        if bbox:
+            minx, miny, maxx, maxy = _get_mercator_bounds(
+                bbox.get('min_lat', 40), bbox.get('min_lon', -5),
+                bbox.get('max_lat', 51), bbox.get('max_lon', 10)
+            )
+            # Add padding
+            w = maxx - minx
+            h = maxy - miny
+            minx -= w * 0.1
+            maxx += w * 0.1
+            miny -= h * 0.1
+            maxy += h * 0.1
+        else:
+            # France Extent approx (Web Mercator)
+            minx, miny, maxx, maxy = -600000, 5000000, 1000000, 6600000
+
+        # Build full project XML (Using EPSG:3857 for compatibility)
         project_xml = f'''<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE qgis PUBLIC 'http://mrcc.com/qgis.dtd' 'SYSTEM'>
 <qgis projectname="{project_name}" version="3.34.0-Prizren" saveDateTime="{datetime.now().isoformat()}" saveUser="GeoToolbox" saveUserFull="GeoToolbox">
-  <homePath path=""/>
   <title>{project_name}</title>
   <transaction mode="Disabled"/>
-  <projectFlags set="TrustStoredLayerStatistics"/>
   <projectCrs>
     <spatialrefsys nativeFormat="Wkt">
-      <wkt>PROJCRS["RGF93 v1 / CC49",BASEGEOGCRS["RGF93 v1",DATUM["Reseau Geodesique Francais 1993 v1",ELLIPSOID["GRS 1980",6378137,298.257222101,LENGTHUNIT["metre",1]]],PRIMEM["Greenwich",0,ANGLEUNIT["degree",0.0174532925199433]],ID["EPSG",4171]],CONVERSION["France CC zone 9",METHOD["Lambert Conic Conformal (2SP)",ID["EPSG",9802]],PARAMETER["Latitude of false origin",49,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8821]],PARAMETER["Longitude of false origin",3,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8822]],PARAMETER["Latitude of 1st standard parallel",48.25,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8823]],PARAMETER["Latitude of 2nd standard parallel",49.75,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8824]],PARAMETER["Easting at false origin",1700000,LENGTHUNIT["metre",1],ID["EPSG",8826]],PARAMETER["Northing at false origin",8200000,LENGTHUNIT["metre",1],ID["EPSG",8827]]],CS[Cartesian,2],AXIS["easting (X)",east,ORDER[1],LENGTHUNIT["metre",1]],AXIS["northing (Y)",north,ORDER[2],LENGTHUNIT["metre",1]],USAGE[SCOPE["Cadastre, engineering survey, topographic mapping (large and medium scale)."],AREA["France - mainland onshore between 48 N and 50 N."],BBOX[48,-4.87,50.18,8.23]],ID["EPSG",3949]]</wkt>
-      <proj4>+proj=lcc +lat_0=49 +lon_0=3 +lat_1=48.25 +lat_2=49.75 +x_0=1700000 +y_0=8200000 +ellps=GRS80 +units=m +no_defs</proj4>
-      <srsid>3949</srsid>
-      <srid>3949</srid>
-      <authid>EPSG:3949</authid>
-      <description>RGF93 v1 / CC49</description>
-      <projectionacronym>lcc</projectionacronym>
-      <ellipsoidacronym>EPSG:7019</ellipsoidacronym>
+      <wkt>PROJCRS["WGS 84 / Pseudo-Mercator",BASEGEOGCRS["WGS 84",ENSEMBLE["World Geodetic System 1984 ensemble",MEMBER["World Geodetic System 1984 (Transit)"],MEMBER["World Geodetic System 1984 (G730)"],MEMBER["World Geodetic System 1984 (G873)"],MEMBER["World Geodetic System 1984 (G1150)"],MEMBER["World Geodetic System 1984 (G1674)"],MEMBER["World Geodetic System 1984 (G1762)"],MEMBER["World Geodetic System 1984 (G2139)"],ELLIPSOID["WGS 84",6378137,298.257223563,LENGTHUNIT["metre",1]],ENSEMBLEACCURACY[2.0]],PRIMEM["Greenwich",0,ANGLEUNIT["degree",0.0174532925199433]],ID["EPSG",4326]],CONVERSION["Popular Visualisation Pseudo-Mercator",METHOD["Popular Visualisation Pseudo Mercator",ID["EPSG",1024]],PARAMETER["Latitude of natural origin",0,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8801]],PARAMETER["Longitude of natural origin",0,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8802]],PARAMETER["False easting",0,LENGTHUNIT["metre",1],ID["EPSG",8806]],PARAMETER["False northing",0,LENGTHUNIT["metre",1],ID["EPSG",8807]]],CS[Cartesian,2],AXIS["easting (X)",east,ORDER[1],LENGTHUNIT["metre",1]],AXIS["northing (Y)",north,ORDER[2],LENGTHUNIT["metre",1]],USAGE[SCOPE["Web mapping and visualisation."],AREA["World between 85.06 S and 85.06 N."],BBOX[-85.06,-180,85.06,180]],ID["EPSG",3857]]</wkt>
+      <proj4>+proj=merc +a=6378137 +b=6378137 +lat_ts=0 +lon_0=0 +x_0=0 +y_0=0 +k=1 +units=m +nadgrids=@null +wktext +no_defs</proj4>
+      <srsid>3857</srsid>
+      <srid>3857</srid>
+      <authid>EPSG:3857</authid>
+      <description>WGS 84 / Pseudo-Mercator</description>
+      <projectionacronym>merc</projectionacronym>
+      <ellipsoidacronym>EPSG:7030</ellipsoidacronym>
       <geographicflag>false</geographicflag>
     </spatialrefsys>
   </projectCrs>
   <layer-tree-group>
-    <customproperties>
-      <Option/>
-    </customproperties>
+    <customproperties/>
     <layer-tree-group name="Données" checked="Qt::Checked" expanded="1">
-      <customproperties>
-        <Option/>
-      </customproperties>
+      <customproperties/>
       {"".join(data_tree_xml)}
     </layer-tree-group>
     <layer-tree-group name="Fonds de carte" checked="Qt::Checked" expanded="0">
-      <customproperties>
-        <Option/>
-      </customproperties>
+      <customproperties/>
       {"".join(basemap_tree_xml)}
     </layer-tree-group>
-    <custom-order enabled="0"/>
   </layer-tree-group>
-  <snapping-settings enabled="0" type="1" mode="2" unit="1" tolerance="12" self-snapping="0" intersection-snapping="0" maxScale="0" minScale="0" scaleDependencyMode="0">
-    <individual-layer-settings/>
-  </snapping-settings>
-  <relations/>
-  <polymorphicRelations/>
   <mapcanvas name="theMapCanvas" annotationsVisible="1">
     <units>meters</units>
     <extent>
-      <xmin>1650000</xmin>
-      <ymin>8150000</ymin>
-      <xmax>1750000</xmax>
-      <ymax>8250000</ymax>
+      <xmin>{minx}</xmin>
+      <ymin>{miny}</ymin>
+      <xmax>{maxx}</xmax>
+      <ymax>{maxy}</ymax>
     </extent>
-    <rotation>0</rotation>
     <destinationsrs>
       <spatialrefsys nativeFormat="Wkt">
-        <wkt>PROJCRS["RGF93 v1 / CC49",BASEGEOGCRS["RGF93 v1",DATUM["Reseau Geodesique Francais 1993 v1",ELLIPSOID["GRS 1980",6378137,298.257222101,LENGTHUNIT["metre",1]]],PRIMEM["Greenwich",0,ANGLEUNIT["degree",0.0174532925199433]],ID["EPSG",4171]],CONVERSION["France CC zone 9",METHOD["Lambert Conic Conformal (2SP)",ID["EPSG",9802]],PARAMETER["Latitude of false origin",49,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8821]],PARAMETER["Longitude of false origin",3,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8822]],PARAMETER["Latitude of 1st standard parallel",48.25,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8823]],PARAMETER["Latitude of 2nd standard parallel",49.75,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8824]],PARAMETER["Easting at false origin",1700000,LENGTHUNIT["metre",1],ID["EPSG",8826]],PARAMETER["Northing at false origin",8200000,LENGTHUNIT["metre",1],ID["EPSG",8827]]],CS[Cartesian,2],AXIS["easting (X)",east,ORDER[1],LENGTHUNIT["metre",1]],AXIS["northing (Y)",north,ORDER[2],LENGTHUNIT["metre",1]],USAGE[SCOPE["Cadastre, engineering survey, topographic mapping (large and medium scale)."],AREA["France - mainland onshore between 48 N and 50 N."],BBOX[48,-4.87,50.18,8.23]],ID["EPSG",3949]]</wkt>
-        <proj4>+proj=lcc +lat_0=49 +lon_0=3 +lat_1=48.25 +lat_2=49.75 +x_0=1700000 +y_0=8200000 +ellps=GRS80 +units=m +no_defs</proj4>
-        <srsid>3949</srsid>
-        <srid>3949</srid>
-        <authid>EPSG:3949</authid>
-        <description>RGF93 v1 / CC49</description>
-        <projectionacronym>lcc</projectionacronym>
-        <ellipsoidacronym>EPSG:7019</ellipsoidacronym>
+        <wkt>PROJCRS["WGS 84 / Pseudo-Mercator",BASEGEOGCRS["WGS 84",ENSEMBLE["World Geodetic System 1984 ensemble",MEMBER["World Geodetic System 1984 (Transit)"],MEMBER["World Geodetic System 1984 (G730)"],MEMBER["World Geodetic System 1984 (G873)"],MEMBER["World Geodetic System 1984 (G1150)"],MEMBER["World Geodetic System 1984 (G1674)"],MEMBER["World Geodetic System 1984 (G1762)"],MEMBER["World Geodetic System 1984 (G2139)"],ELLIPSOID["WGS 84",6378137,298.257223563,LENGTHUNIT["metre",1]],ENSEMBLEACCURACY[2.0]],PRIMEM["Greenwich",0,ANGLEUNIT["degree",0.0174532925199433]],ID["EPSG",4326]],CONVERSION["Popular Visualisation Pseudo-Mercator",METHOD["Popular Visualisation Pseudo Mercator",ID["EPSG",1024]],PARAMETER["Latitude of natural origin",0,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8801]],PARAMETER["Longitude of natural origin",0,ANGLEUNIT["degree",0.0174532925199433],ID["EPSG",8802]],PARAMETER["False easting",0,LENGTHUNIT["metre",1],ID["EPSG",8806]],PARAMETER["False northing",0,LENGTHUNIT["metre",1],ID["EPSG",8807]]],CS[Cartesian,2],AXIS["easting (X)",east,ORDER[1],LENGTHUNIT["metre",1]],AXIS["northing (Y)",north,ORDER[2],LENGTHUNIT["metre",1]],USAGE[SCOPE["Web mapping and visualisation."],AREA["World between 85.06 S and 85.06 N."],BBOX[-85.06,-180,85.06,180]],ID["EPSG",3857]]</wkt>
+        <proj4>+proj=merc +a=6378137 +b=6378137 +lat_ts=0 +lon_0=0 +x_0=0 +y_0=0 +k=1 +units=m +nadgrids=@null +wktext +no_defs</proj4>
+        <srsid>3857</srsid>
+        <srid>3857</srid>
+        <authid>EPSG:3857</authid>
+        <description>WGS 84 / Pseudo-Mercator</description>
+        <projectionacronym>merc</projectionacronym>
+        <ellipsoidacronym>EPSG:7030</ellipsoidacronym>
         <geographicflag>false</geographicflag>
       </spatialrefsys>
     </destinationsrs>
-    <rendermaptile>0</rendermaptile>
   </mapcanvas>
   <legend updateDrawingOrder="true">
     <legendgroup checked="Qt::Checked" name="Données" open="true"/>
     <legendgroup checked="Qt::Checked" name="Fonds de carte" open="false"/>
   </legend>
-  <projectModels/>
   <maplayers>
     {"".join(map_layers_xml)}
     {"".join(basemap_layers_xml)}
   </maplayers>
-  <layerorder/>
-  <properties>
-    <Digitizing>
-      <AvoidIntersectionsMode type="int">0</AvoidIntersectionsMode>
-    </Digitizing>
-    <Gui>
-      <CanvasColorBluePart type="int">255</CanvasColorBluePart>
-      <CanvasColorGreenPart type="int">255</CanvasColorGreenPart>
-      <CanvasColorRedPart type="int">255</CanvasColorRedPart>
-      <SelectionColorAlphaPart type="int">255</SelectionColorAlphaPart>
-      <SelectionColorBluePart type="int">0</SelectionColorBluePart>
-      <SelectionColorGreenPart type="int">255</SelectionColorGreenPart>
-      <SelectionColorRedPart type="int">255</SelectionColorRedPart>
-    </Gui>
-    <Measure>
-      <Ellipsoid type="QString">EPSG:7019</Ellipsoid>
-    </Measure>
-    <SpatialRefSys>
-      <ProjectionsEnabled type="int">1</ProjectionsEnabled>
-    </SpatialRefSys>
-    <WMSServiceTitle type="QString">{project_name}</WMSServiceTitle>
-  </properties>
-  <visibility-presets/>
-  <transformContext/>
-  <projectMetadata>
-    <identifier></identifier>
-    <parentidentifier></parentidentifier>
-    <language>fr</language>
-    <type></type>
-    <title>{project_name}</title>
-    <abstract>Projet généré automatiquement par GéoToolbox</abstract>
-    <author>GéoToolbox</author>
-    <creation>{datetime.now().isoformat()}</creation>
-  </projectMetadata>
-  <Annotations/>
-  <Layouts/>
-  <Bookmarks/>
-  <ProjectViewSettings UseProjectScales="0" rotation="0">
-    <Scales/>
-  </ProjectViewSettings>
-  <ProjectTimeSettings timeStepUnit="h" cumulativeTemporalRange="0" frameRate="1" timeStep="1"/>
-  <ProjectDisplaySettings>
-    <BearingFormat id="bearing">
-      <Option type="Map">
-        <Option type="QChar" value="" name="decimal_separator"/>
-        <Option type="int" value="6" name="decimals"/>
-        <Option type="int" value="0" name="direction_format"/>
-        <Option type="int" value="0" name="rounding_type"/>
-        <Option type="bool" value="false" name="show_plus"/>
-        <Option type="bool" value="true" name="show_thousand_separator"/>
-        <Option type="bool" value="false" name="show_trailing_zeros"/>
-        <Option type="QChar" value="" name="thousand_separator"/>
-      </Option>
-    </BearingFormat>
-    <GeographicCoordinateFormat id="geographiccoordinate">
-      <Option type="Map">
-        <Option type="QChar" value="" name="decimal_separator"/>
-        <Option type="int" value="6" name="decimals"/>
-        <Option type="int" value="0" name="direction_format"/>
-        <Option type="int" value="0" name="rounding_type"/>
-        <Option type="bool" value="false" name="show_plus"/>
-        <Option type="bool" value="true" name="show_thousand_separator"/>
-        <Option type="bool" value="false" name="show_trailing_zeros"/>
-        <Option type="QChar" value="" name="thousand_separator"/>
-      </Option>
-    </GeographicCoordinateFormat>
-  </ProjectDisplaySettings>
 </qgis>'''
-
+        
         # Ensure .qgz extension
         if project_path.endswith('.qgs'):
             project_path = project_path[:-4] + '.qgz'
@@ -366,11 +362,13 @@ def generate_qgis_project(
 def update_qgis_project(
     project_path: str,
     new_raster_layers: List[str] = None,
-    new_vector_layers: List[str] = None
+    new_vector_layers: List[str] = None,
+    bbox: Dict = None
 ) -> bool:
     """Update an existing QGIS project."""
     return generate_qgis_project(
         project_path,
         vector_layers=new_vector_layers or [],
-        raster_layers=new_raster_layers or []
+        raster_layers=new_raster_layers or [],
+        bbox=bbox
     )

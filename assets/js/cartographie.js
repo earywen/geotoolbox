@@ -80,6 +80,114 @@ class CartographieManager {
     initDrawControls() {
         if (!L.Control.Draw) return;
 
+        // French Localization
+        L.drawLocal = {
+            draw: {
+                toolbar: {
+                    actions: {
+                        title: 'Annuler le dessin',
+                        text: 'Annuler'
+                    },
+                    finish: {
+                        title: 'Terminer le dessin',
+                        text: 'Terminer'
+                    },
+                    undo: {
+                        title: 'Supprimer le dernier point',
+                        text: 'Supprimer dernier point'
+                    },
+                    buttons: {
+                        polygon: 'Dessiner un polygone (Emprise)',
+                        rectangle: 'Dessiner un rectangle',
+                        marker: 'Placer un marqueur',
+                        circle: 'Dessiner un cercle',
+                        circlemarker: 'Dessiner un marqueur circulaire',
+                        polyline: 'Dessiner une polyligne'
+                    }
+                },
+                handlers: {
+                    circle: {
+                        tooltip: {
+                            start: 'Cliquez et glissez pour dessiner le cercle.'
+                        },
+                        radius: 'Rayon'
+                    },
+                    circlemarker: {
+                        tooltip: {
+                            start: 'Cliquez sur la carte pour placer le marqueur.'
+                        }
+                    },
+                    marker: {
+                        tooltip: {
+                            start: 'Cliquez sur la carte pour placer le marqueur.'
+                        }
+                    },
+                    polygon: {
+                        tooltip: {
+                            start: 'Cliquez pour commencer à dessiner.',
+                            cont: 'Cliquez pour continuer à dessiner.',
+                            end: 'Cliquez sur le premier point pour fermer ce polygone.'
+                        }
+                    },
+                    polyline: {
+                        error: '<strong>Erreur:</strong> les arêtes ne doivent pas se croiser!',
+                        tooltip: {
+                            start: 'Cliquez pour commencer à dessiner.',
+                            cont: 'Cliquez pour continuer à dessiner.',
+                            end: 'Cliquez sur le dernier point pour terminer la ligne.'
+                        }
+                    },
+                    rectangle: {
+                        tooltip: {
+                            start: 'Cliquez et glissez pour dessiner un rectangle.'
+                        }
+                    },
+                    simpleshape: {
+                        tooltip: {
+                            end: 'Relâchez la souris pour terminer le dessin.'
+                        }
+                    }
+                }
+            },
+            edit: {
+                toolbar: {
+                    actions: {
+                        save: {
+                            title: 'Sauvegarder les modifications',
+                            text: 'Sauvegarder'
+                        },
+                        cancel: {
+                            title: 'Annuler toutes les modifications',
+                            text: 'Annuler'
+                        },
+                        clearAll: {
+                            title: 'Tout effacer',
+                            text: 'Tout effacer'
+                        }
+                    },
+                    buttons: {
+                        edit: 'Modifier les calques',
+                        editDisabled: 'Aucun calque à modifier',
+                        remove: 'Supprimer des calques',
+                        removeDisabled: 'Aucun calque à supprimer'
+                    }
+                },
+                handlers: {
+                    edit: {
+                        tooltip: {
+                            text: 'Glissez les poignées ou le marqueur pour modifier les objets.',
+                            subtext: 'Cliquez sur Annuler pour revenir en arrière.'
+                        }
+                    },
+                    remove: {
+                        tooltip: {
+                            text: 'Cliquez sur un objet pour le supprimer.'
+                        }
+                    }
+                }
+            }
+        };
+
         // Feature group for drawn shapes
         this.drawnItems = new L.FeatureGroup();
         this.map.addLayer(this.drawnItems);
@@ -135,6 +243,28 @@ class CartographieManager {
                 this.updateSiteFromLayer(layer);
             });
         });
+
+        // FORCE ICONS (Fix for invisible sprites)
+        setTimeout(() => this.fixDrawIcons(), 500);
+    }
+
+    fixDrawIcons() {
+        // Icons map
+        const icons = {
+            'leaflet-draw-draw-polygon': `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#334155" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 22h20L12 2z"/></svg>`,
+            'leaflet-draw-draw-rectangle': `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#334155" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/></svg>`,
+            'leaflet-draw-draw-marker': `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#334155" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>`,
+            'leaflet-draw-edit-edit': `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#334155" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`,
+            'leaflet-draw-edit-remove': `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>`
+        };
+
+        for (const [cls, svg] of Object.entries(icons)) {
+            const els = document.getElementsByClassName(cls);
+            for (let el of els) {
+                el.innerHTML = svg;
+                el.style.backgroundImage = 'none'; // Ensure generic CSS doesn't override
+            }
+        }
     }
 
     updateSiteFromLayer(layer) {
@@ -266,7 +396,7 @@ class CartographieManager {
                 document.getElementById('includeMosaics')?.checked,
             include_pva: document.getElementById('includePVA')?.checked ?? true,
             include_mosaics: document.getElementById('includeMosaics')?.checked ?? true,
-            generate_qgis: document.getElementById('exportQGIS')?.checked ?? false,
+
             include_emprise: document.getElementById('exportEmprise')?.checked ?? true
         };
     }

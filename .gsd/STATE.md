@@ -1,38 +1,37 @@
 # STATE.md — Project Memory
 
-> Last updated: 2026-01-23T16:29:00+01:00
+> Last updated: 2026-01-24T17:30:00+01:00
 
 ## Current Position
 
-- **Phase:** Phase 3 — Dessin de Polygone ✅ COMPLETE
+- **Phase:** Phase 5 — Tests & Cleanup ✅ COMPLETE
 - **Milestone:** v2.2.0 "Cartographie Unifiée"
-- **Status:** Paused (Ready for Phase 4)
+- **Status:** FINISHED
 
 ---
 
-## Phase 3 Final Status (Refactored)
+## Final Project Status
 
-| Plan | Name | Status |
-|------|------|--------|
-| 3.1 | Intégrer Leaflet.Draw | ✅ Complete |
-| 3.2 | Implémenter le dessin de polygone | ✅ Complete |
-| 3.3 | Connecter à l'export | ✅ Complete |
-| 3.4 | Refonte Logique Zone d'Étude | ✅ Complete |
+The "Cartographie Unifiée" refactor is complete.
 
----
-
-## Session Summary
-
-**Session terminée avec succès.**
-Le module Cartographie est fonctionnel avec le nouveau workflow "Polygone -> Centre -> Rayon".
-Le code est commité et pushé sur `dev-2`.
-
-## Next Steps (Next Session)
-
-1. **Phase 4:** Export Unifié
-   - Génération du projet QGIS (.qgz)
-   - Organisation propre des dossiers (vecteurs/rasters/rapports)
-
-2. **Phase 5:** Tests & Cleanup
+- **Frontend**: Unified specific mapped UI (Cartographie). Legacy files removed.
+- **Backend**: Unified `cartographie.py`. Legacy modules removed.
+- **Features**:
+  - Polygon Drawing (Leaflet.Draw)
+  - Vector WFS Fetching
+  - Raster PVA/Mosaic Downloading
+  - Unified Folder Export
+  - Auto-generated QGIS Project (.qgz)
 
 ---
+
+## Next Steps
+
+1. **Release v2.2.0**:
+   - Update README/CHANGELOG (user action pending).
+   - Bump Version in `version.py`.
+   - Build EXE.
+
+2. **Future Milestones**:
+   - Add new layers (ARIA, etc.)
+   - Report PDF generation.

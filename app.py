@@ -6,7 +6,7 @@ import webbrowser
 from typing import List, Dict, Any, Optional, Union
 
 import webview
-from modules import geotoolbox, orthohisto, feedback, about, version, core, updater, autolabo, cartographie
+from modules import feedback, about, version, core, updater, autolabo, cartographie
 
 # ==========================================
 # 1. CONFIGURATION
@@ -23,8 +23,6 @@ else:
 # Module Interface Protocol (informal)
 # Expected: module.TOOL_INFO (dict), module.get_ui_content() (str)
 ACTIVE_MODULES: List[Any] = [
-    geotoolbox,
-    orthohisto,
     cartographie,
     autolabo,
     feedback,
@@ -50,8 +48,6 @@ class BurgeaplyApi:
 
         # SVG Icons mapping
         icons: Dict[str, str] = {
-            "geotoolbox": """<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>""",
-            "orthohisto": """<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>""",
             "cartographie": """<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/></svg>""",
             "autolabo": """<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 2v7.31"/><path d="M14 2v7.31"/><path d="M8.5 2h7"/><path d="M14 9.3a6.5 6.5 0 1 1-4 0"/><path d="M5.52 16h12.96"/></svg>""",
 
@@ -135,30 +131,6 @@ class BurgeaplyApi:
         except Exception as e:
             logging.error(f"Error opening folder: {e}")
             return False
-
-    # --- GEOTOOLBOX PROXIES ---
-    def run_preview(self, bbox: Dict[str, float], layers: List[str]) -> List[Dict[str, Any]]:
-        """Proxy for Geotoolbox Preview Logic"""
-        # Context7 recommends validation here ideally
-        return geotoolbox.run_preview_logic(bbox, layers)
-
-    def run_export(self, bbox: Dict[str, float], layers: List[str], folder: str, path: str, export_qgis: bool = False) -> Dict[str, Any]:
-        """Proxy for Geotoolbox Export Logic. Optionally creates QGIS project."""
-        return geotoolbox.run_export_logic(bbox, layers, folder, path, export_qgis=export_qgis)
-
-    def run_save_map(self, b64: str, path: str) -> Optional[str]:
-        """Proxy for saving map images"""
-        return geotoolbox.save_map_image(b64, path)
-
-    # --- ORTHOHISTO PROXIES ---
-    def run_full_process(self, lat: float, lon: float, radius: int, path: str) -> Dict[str, Any]:
-        """Proxy for Orthohisto Full Process"""
-        def progress_callback(percent: float, msg: str) -> None:
-            # Architecture Decoupling: Use generic event dispatch
-            # JS side: window.addEventListener('loader_update', e => updateLoader(e.detail.percent, e.detail.message))
-            core.dispatch_event('loader_update', {'percent': percent, 'message': msg})
-
-        return orthohisto.run_full_process(lat, lon, radius, path, progress_callback)
 
     # --- CARTOGRAPHIE PROXIES ---
     def run_carto_preview(self, bbox: Dict[str, float], layers: List[str]) -> List[Dict[str, Any]]:

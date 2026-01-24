@@ -1,0 +1,39 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Emprise du site",
+        "created": "2026-01-24T17:12:16.842289"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              2.34,
+              48.85
+            ],
+            [
+              2.35,
+              48.85
+            ],
+            [
+              2.35,
+              48.86
+            ],
+            [
+              2.34,
+              48.86
+            ],
+            [
+              2.34,
+              48.85
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}

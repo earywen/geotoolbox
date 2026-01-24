@@ -15,7 +15,7 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
     <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
 
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/style.css?v=2.6">
 </head>
 
 <body>
@@ -61,10 +61,10 @@
                     <div style="margin-top: 40px;">
                         <!-- Note: This button target implies the presence of the 2nd dock item (geotoolbox) -->
                         <button class="btn-glow"
-                            onclick="switchView('geotoolbox', document.querySelectorAll('.dock-item')[1])">
+                            onclick="switchView('cartographie', document.querySelectorAll('.dock-item')[1])">
                             <!-- SVG Icon hardcoded for Home button for now, or loaded via JS? -->
                             <!-- Let's put a generic icon or rely on the fact that JS isn't rendering icons here -->
-                            Lancer GéoToolbox
+                            Lancer Cartographie
                         </button>
                     </div>
                 </div>
@@ -105,10 +105,8 @@
 
     </div>
 
-    <script src="js/app.js"></script>
-    <script src="js/geotoolbox.js"></script>
-    <script src="js/orthohisto.js"></script>
-    <script src="js/cartographie.js"></script>
+    <script src="js/app.js?v=2.5"></script>
+    <script src="js/cartographie.js?v=2.5"></script>
 </body>
 
 </html>

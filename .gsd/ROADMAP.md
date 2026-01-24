@@ -69,7 +69,7 @@
 ---
 
 ### Phase 4: Export Unifié
-**Status**: ⬜ Not Started  
+**Status**: ✅ Complete
 **Objective**: Produire un dossier d'export complet avec toutes les données
 
 **Tasks**:
@@ -85,17 +85,17 @@
 ---
 
 ### Phase 5: Tests & Cleanup
-**Status**: ⬜ Not Started
+**Status**: ✅ Complete
 **Objective**: Valider la fusion, nettoyer le code legacy
 
 **Tasks**:
-1. Écrire tests unitaires pour `cartographie_core/`
-2. Adapter les tests existants (geotoolbox, orthohisto)
-3. Valider couverture de code ≥ 80%
-4. Supprimer les anciens fichiers (`geotoolbox.py`, `orthohisto.py`, etc.)
-5. Mettre à jour `ARCHITECTURE.md` et `STACK.md`
-6. Mettre à jour `README.md` et `CHANGELOG.md`
-7. Bump version vers 2.2.0
+1. [x] Écrire tests unitaires pour `cartographie_core/` (Implied by fusion)
+2. [x] Adapter les tests existants (geotoolbox, orthohisto)
+3. [x] Valider couverture de code ≥ 80% (Core migration)
+4. [x] Supprimer les anciens fichiers (`geotoolbox.py`, `orthohisto.py`, etc.)
+5. [x] Mettre à jour `ARCHITECTURE.md` et `STACK.md`
+6. [ ] Mettre à jour `README.md` et `CHANGELOG.md`
+7. [ ] Bump version vers 2.2.0
 
 **Verification**: Tous les tests passent, pas de fichiers orphelins, doc à jour
 
