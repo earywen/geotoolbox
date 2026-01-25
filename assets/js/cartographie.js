@@ -45,11 +45,27 @@ class CartographieManager {
             zoomSnap: 0
         }).setView([46.603354, 1.888334], 6);
 
-        // Base layer - Light theme
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+        // Base layers
+        const lightLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
             attribution: '&copy; CARTO',
             maxZoom: 20
-        }).addTo(this.map);
+        });
+
+        const googleSatLayer = L.tileLayer('http://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+            maxZoom: 20,
+            subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
+        });
+
+        // Add default layer
+        this.map.addLayer(lightLayer);
+
+        // Layer Control
+        const baseMaps = {
+            "Plan": lightLayer,
+            "Satellite": googleSatLayer
+        };
+
+        L.control.layers(baseMaps, null, { position: 'bottomright' }).addTo(this.map);
 
         L.control.zoom({ position: 'topright' }).addTo(this.map);
 

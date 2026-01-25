@@ -121,3 +121,17 @@
 - Mode "projet" avec sauvegarde/chargement de paramètres
 - Génération de rapport PDF automatique
 - Support multi-emprises (plusieurs sites dans un export)
+
+---
+
+### Phase 6: Améliorations UI
+**Status**: 🚀 In Progress
+**Objective**: Améliorer l'expérience utilisateur avec de nouvelles options de visualisation
+
+**Tasks**:
+1. [x] Ajouter fond de carte Google Satellite (Hybrid) à Leaflet
+2. [x] Ajouter un sélecteur de couches (Control.Layers)
+3. [ ] Vérifier la bonne superposition avec les dessins
+
+**Verification**: L'utilisateur peut basculer entre le plan clair et la vue satellite.
+

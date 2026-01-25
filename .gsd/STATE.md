@@ -4,9 +4,9 @@
 
 ## Current Position
 
-- **Phase:** Phase 5 — Tests & Cleanup ✅ COMPLETE
+- **Phase:** Phase 6 — Améliorations UI
 - **Milestone:** v2.2.0 "Cartographie Unifiée"
-- **Status:** FINISHED
+- **Status:** IN PROGRESS
 
 ---
 
