@@ -50,22 +50,41 @@ class CartographieManager {
             attribution: '&copy; CARTO',
             maxZoom: 20
         });
+        const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        });
 
         const googleSatLayer = L.tileLayer('http://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
             maxZoom: 20,
             subdomains: ['mt0', 'mt1', 'mt2', 'mt3']
         });
 
-        // Add default layer
-        this.map.addLayer(lightLayer);
+        const brgmGeology = L.tileLayer.wms('http://geoservices.brgm.fr/geologie', {
+            layers: 'GEOLOGIE',
+            format: 'image/png',
+            transparent: true,
+            opacity: 0.65,
+            attribution: '&copy; BRGM'
+        });
 
         // Layer Control
         const baseMaps = {
-            "Plan": lightLayer,
-            "Satellite": googleSatLayer
+            "Plan (OSM)": osmLayer,
+            "Satellite (Google)": googleSatLayer
         };
 
-        L.control.layers(baseMaps, null, { position: 'bottomright' }).addTo(this.map);
+        const overlayMaps = {
+            "Carte Géologique 1/50k": brgmGeology
+        };
+
+        if (this.currentLayerControl) {
+            this.map.removeControl(this.currentLayerControl);
+        }
+
+        this.currentLayerControl = L.control.layers(baseMaps, overlayMaps, { position: 'bottomright' }).addTo(this.map);
+
+        // Default View
+        osmLayer.addTo(this.map);
 
         L.control.zoom({ position: 'topright' }).addTo(this.map);
 
@@ -83,14 +102,68 @@ class CartographieManager {
                 .addTo(this.map);
         }
 
-        // Initialize Draw Controls immediately
         this.initDrawControls();
 
-        // Map Click handling (optional: move center if polygon exists?)
-        // Let's disable map click for center selection to avoid confusion with drawing
-        // User must draw polygon to define center.
+        // Load Layers from Backend
+        this.loadLayers();
+
+        // Init Slider Background
+        const radInput = document.getElementById('cartoRadius');
+        if (radInput) this.updateSliderBackground(radInput);
+
+        // Init Icons
+        if (window.lucide) window.lucide.createIcons();
 
         console.log("[Cartographie] Map initialized");
+    }
+
+    async loadLayers() {
+        const container = document.getElementById('carto-layers-list');
+        if (!container) return;
+
+        // 1. Show Skeleton
+        container.innerHTML = `
+            <div class="skeleton" style="height: 30px; margin-bottom: 8px;"></div>
+            <div class="skeleton" style="height: 30px; margin-bottom: 8px;"></div>
+            <div class="skeleton" style="height: 30px; margin-bottom: 8px;"></div>
+            <div class="skeleton" style="height: 30px; margin-bottom: 8px;"></div>
+        `;
+
+        try {
+            // Simulate network delay for effect (can be removed)
+            await new Promise(r => setTimeout(r, 600));
+
+            const config = await window.pywebview.api.get_carto_config();
+            if (!config) throw new Error("Empty config");
+
+            container.innerHTML = ''; // Clear skeleton
+
+            Object.entries(config).forEach(([key, conf]) => {
+                const color = conf.color || "#cbd5e1";
+                const label = conf.label || key;
+                const checked = true; // Default to checked
+
+                // Create Checkbox Wrapper
+                const div = document.createElement('div');
+                div.className = 'carto-checkbox-wrapper';
+                // Add fade-in animation
+                div.style.animation = "fadeIn 0.3s ease-out forwards";
+                div.innerHTML = `
+                    <input type="checkbox" id="chk_${key}" value="${key}" ${checked ? 'checked' : ''}>
+                    <label for="chk_${key}" style="color:${color}">${label}</label>
+                `;
+                container.appendChild(div);
+            });
+            console.log("[Cartographie] Layers loaded dynamically");
+
+        } catch (e) {
+            console.error("[Cartographie] Failed to load layer config:", e);
+            container.innerHTML = `<div style="color: #ef4444; font-size:11px; padding: 10px; border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; background: rgba(239, 68, 68, 0.1);">
+                ⚠️ Erreur chargement couches<br>
+                <span style="opacity: 0.7; font-size: 9px;">${e.message || e}</span>
+            </div>`;
+            if (window.showToast) window.showToast('error', "Impossible de charger les couches");
+        }
     }
 
     initDrawControls() {
@@ -297,6 +370,16 @@ class CartographieManager {
 
         // 4. Update UI Infos
         this.updateUIInfos();
+
+        // 5. Pulse Export Button to guide user
+        // 5. Pulse/Highlight Export Button
+        const exportBtn = document.querySelector('.btn-shimmer');
+        if (exportBtn) {
+            // Optional: We could boost the shimmer speed or add a glow here
+            // For now, let's just trigger a small 'pop' animation via CSS class if needed
+            exportBtn.style.transform = "scale(1.05)";
+            setTimeout(() => exportBtn.style.transform = "", 200);
+        }
     }
 
     updateVisuals() {
@@ -329,16 +412,27 @@ class CartographieManager {
 
         if (radInput && radDisplay) {
             radDisplay.innerText = radInput.value + " m";
+            this.updateSliderBackground(radInput); // Update visual fill
             this.updateVisuals(); // Re-draw circle with new radius
         }
     }
 
+    updateSliderBackground(elm) {
+        if (!elm) return;
+        const min = elm.min ? parseFloat(elm.min) : 0;
+        const max = elm.max ? parseFloat(elm.max) : 100;
+        const val = parseFloat(elm.value);
+
+        const percentage = ((val - min) / (max - min)) * 100;
+
+        // CSS Variable integration for colors
+        // Left part (filled): var(--accent) #38bdf8
+        // Right part (empty): rgba(15, 23, 42, 0.8) (from CSS)
+
+        elm.style.background = `linear-gradient(to right, #38bdf8 0%, #38bdf8 ${percentage}%, rgba(15, 23, 42, 0.8) ${percentage}%, rgba(15, 23, 42, 0.8) 100%)`;
+    }
+
     updateUIInfos() {
-        // Coords Display
-        const coordsInput = document.getElementById('cartoCoords');
-        if (coordsInput) {
-            coordsInput.value = `${this.selectedLat.toFixed(5)}, ${this.selectedLon.toFixed(5)}`;
-        }
 
         // Emprise Info
         const infoEl = document.getElementById('empriseInfo');
@@ -378,8 +472,6 @@ class CartographieManager {
         this.selectedLat = 0;
 
         // Reset UI
-        const coordsInput = document.getElementById('cartoCoords');
-        if (coordsInput) coordsInput.value = "";
 
         this.updateUIInfos();
         this.addLog('info', 'Emprise effacée');
@@ -413,7 +505,7 @@ class CartographieManager {
             include_pva: document.getElementById('includePVA')?.checked ?? true,
             include_mosaics: document.getElementById('includeMosaics')?.checked ?? true,
 
-            include_emprise: document.getElementById('exportEmprise')?.checked ?? true
+            include_emprise: true // Always include site boundary
         };
     }
 
@@ -468,23 +560,37 @@ class CartographieManager {
     renderPreview(res) {
         if (!this.map) return;
         if (this.geoJsonLayer) this.map.removeLayer(this.geoJsonLayer);
-        this.geoJsonLayer = L.layerGroup().addTo(this.map);
+
+        // Use MarkerClusterGroup (if available) or fallback to LayerGroup
+        if (L.markerClusterGroup) {
+            this.geoJsonLayer = L.markerClusterGroup({
+                chunkedLoading: true, // Optim: Process in chunks to avoid UI freeze
+                maxClusterRadius: 50
+            });
+        } else {
+            this.geoJsonLayer = L.layerGroup();
+        }
+
+        this.geoJsonLayer.addTo(this.map);
 
         res.forEach(g => {
             if (!g.items) return;
-            g.items.forEach(i => {
-                if (i.geometry) {
-                    L.geoJSON(i.geometry, {
-                        pointToLayer: (f, l) => L.circleMarker(l, {
-                            radius: 5,
-                            fillColor: i.color,
-                            color: "#fff",
-                            weight: 1,
-                            fillOpacity: 0.8
-                        }),
-                        style: { color: i.color, weight: 2 }
-                    }).bindPopup(`<b>${g.layer}</b><br>${i.nom}`).addTo(this.geoJsonLayer);
-                }
+
+            // Optimization: Filter out invalid geometries beforehand
+            const validItems = g.items.filter(i => i.geometry);
+
+            validItems.forEach(i => {
+                // Create layer from GeoJSON
+                L.geoJSON(i.geometry, {
+                    pointToLayer: (f, l) => L.circleMarker(l, {
+                        radius: 5,
+                        fillColor: i.color,
+                        color: "#fff",
+                        weight: 1,
+                        fillOpacity: 0.8
+                    }),
+                    style: { color: i.color, weight: 2 }
+                }).bindPopup(`<b>${g.layer}</b><br>${i.nom}`).addTo(this.geoJsonLayer);
             });
         });
     }
@@ -528,8 +634,14 @@ class CartographieManager {
                 };
             }
 
+            // Generate Radius Polygon (Circle)
+            let radiusGeoJSON = null;
+            if (this.siteCircle) {
+                radiusGeoJSON = this.getCirclePolygon(this.siteCircle);
+            }
+
             const res = await window.pywebview.api.run_carto_export(
-                bbox, layers, null, folder, options, emprise
+                bbox, layers, null, folder, options, emprise, radiusGeoJSON
             );
 
             if (window.hideLoader) window.hideLoader();
@@ -547,6 +659,30 @@ class CartographieManager {
             if (window.hideLoader) window.hideLoader();
             this.addLog('error', `Erreur: ${err}`);
         }
+    }
+
+    getCirclePolygon(circle) {
+        const center = circle.getLatLng();
+        const radius = circle.getRadius(); // meters
+        const sides = 64;
+        const lat = center.lat;
+        const lng = center.lng;
+
+        const points = [];
+        for (let i = 0; i < sides; i++) {
+            const angle = (i * 360 / sides) * (Math.PI / 180);
+            // Simple flat earth approximation is sufficient for local visualization
+            const dLat = (radius * Math.cos(angle)) / 111111;
+            const dLng = (radius * Math.sin(angle)) / (111111 * Math.cos(lat * Math.PI / 180));
+            points.push([lng + dLng, lat + dLat]);
+        }
+        // Close ring
+        points.push(points[0]);
+
+        return {
+            type: "Polygon",
+            coordinates: [points]
+        };
     }
 
     async browseFolder() {

@@ -6,7 +6,18 @@ Contains LAYERS_CONFIG and data models for vector/raster sources.
 Migrated from: modules/geotoolbox_core/models.py
 """
 
-from typing import Dict, Any
+from typing import Dict, Any, Optional
+from pydantic import BaseModel, Field
+
+class GeoFeature(BaseModel):
+    id: str
+    geometry: Optional[Dict[str, Any]] = None # GeoJSON Geometry
+    properties: Dict[str, Any] = Field(default_factory=dict)
+    
+    def to_ui_dict(self) -> Dict[str, Any]:
+        """Convert to flat dictionary for UI consumption."""
+        return {**self.properties, "geometry": self.geometry, "id": self.id}
+
 
 # ==========================================
 # CONFIGURATION DES COUCHES VECTORIELLES

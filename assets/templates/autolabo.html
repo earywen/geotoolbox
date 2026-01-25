@@ -179,7 +179,7 @@
     <!-- === LEFT COLUMN: CONFIGURATION === -->
     <div id="autolabo-config-panel">
         <div class="panel-header">
-            <h2><span class="text-accent">⚙️</span> Configuration</h2>
+            <h2><i data-lucide="settings" class="text-accent" style="width: 24px; height: 24px;"></i> Configuration</h2>
             <p>Paramétrez votre analyse.</p>
         </div>
 
@@ -210,8 +210,8 @@
                 Définissez vos seuils spécifiques manuellement.
             </p>
             <button onclick="openRulesEditor()" class="btn-secondary"
-                style="width: 100%; font-size: 12px; padding: 10px; justify-content: center;">
-                🛠️ Gérer les Règles Perso.
+                style="width: 100%; font-size: 12px; padding: 10px; justify-content: center; gap: 8px;">
+                <i data-lucide="wrench" style="width: 14px; height: 14px;"></i> Gérer les Règles Perso.
             </button>
         </div>
 
@@ -220,7 +220,9 @@
             <div class="section-title" style="margin-top: 0;">4. DESTINATION</div>
             <div class="input-group">
                 <input type="text" id="autolabo-target-path" class="input-pill" readonly placeholder="Dossier cible...">
-                <button class="btn-icon-input" onclick="autoLaboBrowseFolder()">📂</button>
+                <button class="btn-icon-input" onclick="autoLaboBrowseFolder()">
+                    <i data-lucide="folder-open" style="width: 14px; height: 14px;"></i>
+                </button>
             </div>
         </div>
 
@@ -236,7 +238,8 @@
     <div id="autolabo-workspace">
         <div class="panel-header" style="display: flex; justify-content: space-between; align-items: flex-end;">
             <div>
-                <h2><span class="text-accent">🧪</span> Espace de Travail</h2>
+                <h2><i data-lucide="flask-conical" class="text-accent" style="width: 24px; height: 24px;"></i> Espace de
+                    Travail</h2>
                 <p>Déposez vos fichiers et lancez le traitement.</p>
             </div>
 
@@ -247,8 +250,12 @@
                     EN BREF: <span id="preview-provider" style="color: var(--text-main);"></span>
                 </div>
                 <div style="display: flex; gap: 15px; font-size: 13px; font-weight: 500;">
-                    <div>📝 <span id="preview-samples">-</span> échantillons</div>
-                    <div>🔬 <span id="preview-params">-</span> paramètres</div>
+                    <div><i data-lucide="file-text"
+                            style="width: 14px; height: 14px; display: inline-block; vertical-align: middle;"></i> <span
+                            id="preview-samples">-</span> échantillons</div>
+                    <div><i data-lucide="microscope"
+                            style="width: 14px; height: 14px; display: inline-block; vertical-align: middle;"></i> <span
+                            id="preview-params">-</span> paramètres</div>
                 </div>
             </div>
         </div>
@@ -256,7 +263,7 @@
         <!-- VIEW: DROPZONE & LIST -->
         <div id="view-drop-mode" style="display: flex; flex-direction: column; flex: 1;">
             <div id="autolabo-dropzone" class="autolabo-dropzone">
-                <div class="drop-icon">📄</div>
+                <div class="drop-icon"><i data-lucide="file-up" style="width: 64px; height: 64px;"></i></div>
                 <h4>Glisser vos Rapports Labo ici</h4>
                 <p>Formats supportés : .xlsx, .xls</p>
                 <p style="font-size: 11px; color: var(--text-muted); margin-top: 5px;">(Ou cliquez pour parcourir)</p>
@@ -299,21 +306,18 @@
             </div>
 
             <!-- ACTION BUTTONS -->
-            <div style="width: 250px; display: flex; flex-direction: column; gap: 10px;">
+            <div style="width: 300px; display: flex; flex-direction: column; gap: 10px;">
                 <div class="section-title" style="margin-bottom: 5px;">ACTION</div>
 
-                <div style="display: flex; gap: 10px; height: 120px;">
-                    <button id="btn-preview-autolabo" onclick="runPreview()" class="btn-secondary"
-                        style="flex: 1; border-radius: 12px; font-size: 13px; display: flex; flex-direction: column; align-items: center; justify-content: center;"
-                        disabled>
-                        <span>👀 Aperçu</span>
+                <div class="btn-group-row" style="margin-top: 0; gap: 10px;">
+                    <button id="btn-preview-autolabo" onclick="runPreview()" class="btn-glass" disabled>
+                        <i data-lucide="eye" style="width: 16px; height: 16px;"></i> Aperçu
                     </button>
 
-                    <button id="btn-process-autolabo" onclick="runAutoLabo()" class="btn-glow"
-                        style="flex: 2; border-radius: 12px; font-size: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px;"
-                        disabled>
-                        <span>🚀 Lancer</span>
-                        <span style="font-size: 10px; opacity: 0.8; font-weight: normal;">Export Excel</span>
+                    <button id="btn-process-autolabo" onclick="runAutoLabo()" class="btn-shimmer" disabled>
+                        <span class="btn-shimmer-content">
+                            <i data-lucide="rocket" style="width: 16px; height: 16px;"></i> Lancer
+                        </span>
                     </button>
                 </div>
             </div>

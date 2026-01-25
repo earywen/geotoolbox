@@ -97,18 +97,32 @@ def run_preview_logic(
         name_k = config["name_field"].lower()
 
         for r in rows:
-            # Basic Latitude Filter
-            if r.get('LATITUDE_APPROX', 0) > 35:
-                raw_nom = r.get(name_k)
-                if not raw_nom or str(raw_nom).strip() == "" or raw_nom == "None":
-                    raw_nom = r.get('bss_id') or r.get('code_bss') or r.get('id') or "Sans nom"
+            # Pydantic Model Access - Properties are in .properties dict
+            props = r.properties
+            
+            # Basic Latitude Filter (Fix for AttributeError)
+            # Some sources might provide LATITUDE_APPROX in properties
+            lat = props.get('LATITUDE_APPROX', 0)
+            
+            # Note: If checking searching by BBOX, this filter might be redundant/incorrect for some layers.
+            # Only apply if strictly needed or if LATITUDE_APPROX exists.
+            if isinstance(lat, (int, float)) and lat > 35:
+                 pass # Check passed
+            elif 'LATITUDE_APPROX' not in props: 
+                 pass # No lat info, assume valid (geometry check usually done elsewhere)
+            else:
+                 continue # Invalid lat
+            
+            raw_nom = props.get(name_k)
+            if not raw_nom or str(raw_nom).strip() == "" or raw_nom == "None":
+                raw_nom = props.get('bss_id') or props.get('code_bss') or r.id or "Sans nom"
 
-                preview_items.append({
-                    "nom": str(raw_nom),
-                    "color": config["color"],
-                    "geometry": r.get('geometry'),
-                    "details": r.get('niveau_eau_scrappe')
-                })
+            preview_items.append({
+                "nom": str(raw_nom),
+                "color": config["color"],
+                "geometry": r.geometry,
+                "details": props.get('niveau_eau_scrappe')
+            })
 
         results.append({
             "layer": config['label'],
@@ -203,7 +217,8 @@ def run_export_logic(
     base_path_ui: Optional[str],
     options: Optional[Dict[str, Any]] = None,
     reporter: Optional[ProgressReporter] = None,
-    emprise_geojson: Optional[Dict[str, Any]] = None
+    emprise_geojson: Optional[Dict[str, Any]] = None,
+    radius_geojson: Optional[Dict[str, Any]] = None
 ) -> Dict[str, Any]:
     """
     Executes the full export logic for vectors and rasters.
@@ -213,9 +228,10 @@ def run_export_logic(
         layers_list: Vector layers to export
         folder_name: Export folder name
         base_path_ui: Base path from UI
-        options: Export options (include_vectors, include_rasters, export_qgis, etc.)
+        options: Export options
         reporter: Progress reporter
-        emprise_geojson: Optional site boundary polygon as GeoJSON geometry
+        emprise_geojson: Optional site boundary polygon
+        radius_geojson: Optional search radius polygon
         
     Returns:
         Export summary with folder path and results
@@ -234,17 +250,13 @@ def run_export_logic(
     if reporter is None:
         reporter = CoreEventReporter()
 
-    # --- ÉTAPE 0 : EXPORT EMPRISE (si fournie) ---
+    # --- ÉTAPE 0 : EXPORT EMPRISE & RAYON ---
     vector_files_for_qgis = []
+    vecteurs_dir = os.path.join(path, "vecteurs")
+    os.makedirs(vecteurs_dir, exist_ok=True)
     
     if opts.include_emprise and emprise_geojson:
-        # Save directly to 'vecteurs' subfolder
-        vecteurs_dir = os.path.join(path, "vecteurs")
-        os.makedirs(vecteurs_dir, exist_ok=True)
-        emprise_path = os.path.join(vecteurs_dir, "emprise_site.geojson")
-        
-        # Manually save export (avoid reuse of broken _export_emprise for pathing reasons if strict)
-        # Using helper if cleaner:
+        # Manually save export
         final_emp_path = _export_emprise(emprise_geojson, vecteurs_dir) 
         
         if final_emp_path:
@@ -252,13 +264,50 @@ def run_export_logic(
             try:
                 from modules.qgis_export.style_generator import generate_qml_polygon
                 emp_qml = final_emp_path.replace('.geojson', '.qml')
-                # fill_style='no' means transparent fill
                 generate_qml_polygon(emp_qml, color='#ef4444', outline_color='#ef4444', outline_width=0.8, opacity=0, fill_style='no')
             except ImportError as e:
                 logging.error(f"Could not gen emprise style: {e}")
                 
             summary.append({"status": "success", "layer": "Emprise du site", "type": "emprise"})
             vector_files_for_qgis.append(final_emp_path)
+
+    # Export Radius if available
+    if radius_geojson:
+        try:
+            import json
+            radius_path = os.path.join(vecteurs_dir, "rayon_recherche.geojson")
+            
+            geojson_feature = {
+                "type": "FeatureCollection",
+                "features": [{
+                    "type": "Feature",
+                    "properties": {
+                        "name": "Rayon de recherche",
+                        "created": datetime.now().isoformat()
+                    },
+                    "geometry": radius_geojson
+                }]
+            }
+            
+            with open(radius_path, 'w', encoding='utf-8') as f:
+                json.dump(geojson_feature, f, ensure_ascii=False, indent=2)
+
+            # Style for Radius (Dashed Blue Line, Transparent Fill)
+            try:
+                from modules.qgis_export.style_generator import generate_qml_polygon
+                radius_qml = radius_path.replace('.geojson', '.qml')
+                # We need to support 'dashed' line style in style_generator if possible, 
+                # but for now we'll use a standard solid blue line of different shade
+                generate_qml_polygon(radius_qml, color='#0ea5e9', outline_color='#0ea5e9', outline_width=0.6, opacity=0.1, fill_style='solid')
+            except ImportError:
+                pass
+
+            summary.append({"status": "success", "layer": "Rayon de recherche", "type": "vector"})
+            vector_files_for_qgis.append(radius_path)
+            logging.info(f"[Cartographie] Rayon exporté: {radius_path}")
+
+        except Exception as e:
+            logging.error(f"Error exporting radius: {e}")
 
     # --- ÉTAPE 1 : ANALYSE GLOBALE (0-10%) ---
     if opts.include_vectors and layers_list:
@@ -458,25 +507,13 @@ def run_export_logic(
 # ==========================================
 # 5. UI LOADER
 # ==========================================
+# ==========================================
+# 5. UI LOADER
+# ==========================================
 def get_ui_content() -> str:
-    """Returns the HTML fragment for the Cartographie module with dynamic checkboxes."""
+    """Returns the HTML fragment for the Cartographie module."""
     try:
         html = core.load_template("cartographie.html")
-        
-        # Generate Checkboxes
-        checkboxes_html = ""
-        for k, c in LAYERS_CONFIG.items():
-            color = c.get("color", "#cbd5e1")
-            label = c.get("label", k)
-            # Use carto-checkbox-wrapper class defined in template CSS
-            checkboxes_html += f'''
-            <div class="carto-checkbox-wrapper">
-                <input type="checkbox" id="chk_{k}" value="{k}" checked>
-                <label for="chk_{k}" style="color:{color}">{label}</label>
-            </div>
-            '''
-            
-        return html.replace("{{CHECKBOXES}}", checkboxes_html)
-        
+        return html 
     except FileNotFoundError:
         return "<div class='placeholder'>Erreur: Template cartographie.html introuvable</div>"

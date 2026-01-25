@@ -1,37 +1,30 @@
 # STATE.md — Project Memory
 
-> Last updated: 2026-01-24T17:30:00+01:00
+> Last updated: 2026-01-25
 
 ## Current Position
 
-- **Phase:** Phase 6 — Améliorations UI
-- **Milestone:** v2.2.0 "Cartographie Unifiée"
-- **Status:** IN PROGRESS
+- **Phase:** Phase 7 — Debugging Missing Layers
+- **Milestone:** v2.2.1 "Hotfix WFS Layers"
+- **Status:** COMPLETED
 
 ---
 
-## Final Project Status
+## Accomplishments
 
-The "Cartographie Unifiée" refactor is complete.
+- **Debug**: Fixed missing ZNIEFF/NATURA/PPRI layers export.
+  - Implemented WFS 1.1.0 support for INPN.
+  - Patched GML Parser for `featureMembers`.
+  - Corrected Layer Names and Configs.
+  - Added Regression Test `tests/test_vector_fetcher_layers.py`.
 
-- **Frontend**: Unified specific mapped UI (Cartographie). Legacy files removed.
-- **Backend**: Unified `cartographie.py`. Legacy modules removed.
-- **Features**:
-  - Polygon Drawing (Leaflet.Draw)
-  - Vector WFS Fetching
-  - Raster PVA/Mosaic Downloading
-  - Unified Folder Export
-  - Auto-generated QGIS Project (.qgz)
+- **Deploy**: 
+  - Changes pushed to `dev-2`.
 
 ---
 
 ## Next Steps
 
-1. **Release v2.2.0**:
-   - Update README/CHANGELOG (user action pending).
-   - Bump Version in `version.py`.
-   - Build EXE.
-
-2. **Future Milestones**:
-   - Add new layers (ARIA, etc.)
-   - Report PDF generation.
+1. **Release v2.2.1**:
+   - Merge `dev-2` to `main` (pending approval).
+   - Build new EXE for production.

@@ -8,9 +8,9 @@ Migrated from: modules/geotoolbox_core/fetcher.py
 
 import re
 import logging
-from concurrent.futures import ThreadPoolExecutor
+from typing import List, Dict, Any, Optional
 from modules import core
-from .models import LAYERS_CONFIG
+from .models import LAYERS_CONFIG, GeoFeature
 from .parsers import parse_gml_response
 
 # Performance: Precompiled regex patterns for faster scraping
@@ -33,165 +33,216 @@ _BSS_NIVEAU_EAU_PATTERN = re.compile(
     re.IGNORECASE
 )
 
+logger = logging.getLogger(__name__)
 
-def scrape_ssp_activity(session, url):
-    """Scrape activity information from GeoRisques SSP page using BeautifulSoup."""
-    if not url or "http" not in url: return "-"
-    
-    try:
-        from bs4 import BeautifulSoup
-        r = session.get(url, timeout=5)
-        if r.status_code != 200: return "Err HTTP"
-        
-        soup = BeautifulSoup(r.text, 'lxml')
-        
-        # Method 1: Look for "Activité principale" in labels or dt
-        # The structure is often a table-like definition list or simple table
-        
-        # Try finding the specific span or td
-        # Pattern often: <td>Activité principale</td><td><span>...</span></td>
-        
-        container = soup.find(string=re.compile("Activité principale", re.IGNORECASE))
-        if container:
-            # Navigate up to parent and find the next sibling or value
-            # Structure varies, typically it's in a neighboring cell
-            # Case 1: <td>Title</td><td>Value</td>
-            parent_td = container.find_parent('td')
-            if parent_td:
-                next_td = parent_td.find_next_sibling('td')
-                if next_td:
-                    val = next_td.get_text(strip=True)
-                    if val: return val
-
-            # Case 2: <dt>Title</dt><dd>Value</dd>
-            parent_dt = container.find_parent('dt')
-            if parent_dt:
-                next_dd = parent_dt.find_next_sibling('dd')
-                if next_dd:
-                    val = next_dd.get_text(strip=True)
-                    if val: return val
-                    
-        # Fallback to regex if BS4 fails to find structure but text exists
-        # (Keeping legacy regex as fallback is safe)
-        html = r.text.replace('\n', ' ').replace('\r', ' ')
-        html = _WHITESPACE_PATTERN.sub(' ', html)
-        
-        m_prim = _ACTIVITY_PRIMARY_PATTERN.search(html)
-        if m_prim:
-             val = _HTML_TAG_PATTERN.sub('', m_prim.group(1)).strip()
-             if val and "Non renseignée" not in val: return val
-
-        return "Non détectée"
-        
-    except ImportError:
-        # Fallback if BS4 not installed (graceful degradation)
-        logging.warning("BeautifulSoup not found, falling back to regex")
-        # Legacy Regex Code
-        try:
-            r = session.get(url, timeout=5)
-            html = r.text.replace('\n', ' ').replace('\r', ' ')
-            html = _WHITESPACE_PATTERN.sub(' ', html)
-            m_prim = _ACTIVITY_PRIMARY_PATTERN.search(html)
-            if m_prim:
-                return _HTML_TAG_PATTERN.sub('', m_prim.group(1)).strip()
-            return "Non détectée"
-        except:
-             return "Err Scrap"
-             
-    except Exception as e:
-        return f"Err: {str(e)[:10]}"
-
-
-def fetch_features(layer_key, bbox, mode='preview'):
+def fetch_features(layer_key: str, bbox: Dict[str, float], mode: str = 'preview') -> List[GeoFeature]:
     """
     Fetch features from WFS for a given layer and bounding box.
     
+    Orchestrates:
+    1. Cache Lookup (Local DiskCache)
+    2. WFS Fetching (OWSLib or Legacy Requests)
+    3. Parsing (GML -> GeoFeature objects)
+    4. Async Scraping (for BSS/SSP enrichment)
+    5. Cache Storage
+    
     Args:
-        layer_key: Layer identifier (e.g., 'BSS', 'SAGES')
-        bbox: Bounding box with min_lat, max_lat, min_lon, max_lon
-        mode: 'preview' or 'export'
+        layer_key (str): Layer identifier (e.g., 'BSS', 'SAGES').
+        bbox (dict): Bounding box with min_lat, max_lat, min_lon, max_lon.
+        mode (str): 'preview' or 'export'.
         
     Returns:
-        List of feature dictionaries
+        List[GeoFeature]: List of feature objects.
     """
-    config = LAYERS_CONFIG.get(layer_key)
-    if not config: return []
-    base_url = core.CONFIG.get('geotoolbox', {}).get(config['url_key'])
-    if not base_url: return []
-
-    min_lon, min_lat = max(bbox['min_lon'], -180), max(bbox['min_lat'], -90)
-    max_lon, max_lat = min(bbox['max_lon'], 180), min(bbox['max_lat'], 90)
-
-    # Determine Version (Default 1.0.0)
-    wfs_version = config.get("wfs_version", "1.0.0")
+    # --- CACHE ---
+    from modules.cache_manager import get_cache
+    cache = get_cache()
     
-    # Generic Params
-    params = {
-        "service": "WFS",
-        "version": wfs_version,
-        "request": "GetFeature",
-        "typeName": config["layer_name"],
-        "srsName": "EPSG:4326" 
-    }
-
-    # BBOX Handling depends on Version and Service
-    # WFS 1.0.0 -> Lon,Lat
-    # WFS 1.1.0 -> Usually Lat,Lon if URN used, but Server dependent.
-    # Our test showed INPN WFS 1.1.0 accepts Lon,Lat for "EPSG:4326"
-    # IGN uses 2.0.0 Lat,Lon
+    # Cache Key for WFS
+    cache_key_wfs = f"WFS_{layer_key}_{bbox['min_lon']:.4f}_{bbox['min_lat']:.4f}_{bbox['max_lon']:.4f}_{bbox['max_lat']:.4f}_{mode}"
     
-    if config.get('url_key') == 'ign_wfs_url':
-         # FORCE IGN Specific configuration
-         params['version'] = "2.0.0"
-         params['bbox'] = f"{min_lat},{min_lon},{max_lat},{max_lon}"
+    cached_rows = cache.get(cache_key_wfs)
+    if cached_rows is not None:
+         logger.info(f"[{layer_key}] Cache HIT ({len(cached_rows)} items)")
+         rows = cached_rows
     else:
-         # Default Lon,Lat (Works for INPN 1.1.0 and Georisques 1.0.0/1.1.0)
-         params['bbox'] = f"{min_lon},{min_lat},{max_lon},{max_lat}"
+        # --- FETCH (Hybrid) ---
+        config = LAYERS_CONFIG.get(layer_key)
+        if not config: return []
+        base_url = core.CONFIG.get('geotoolbox', {}).get(config['url_key'])
+        if not base_url: return []
 
+        # Prepare BBOX (always passed as tuple to OWSLib)
+        bbox_tuple = (
+            bbox['min_lon'], bbox['min_lat'],
+            bbox['max_lon'], bbox['max_lat']
+        )
 
-    rows = []
-    session = core.get_session()
+        wfs_version = config.get("wfs_version", "1.0.0")
+        layer_name = config["layer_name"]
+        use_legacy = config.get('url_key') == 'carmen_wfs_url'
+        rows = []
 
-    try:
-        response = session.get(base_url, params=params, timeout=30)
-        if response.status_code == 200:
-            rows = parse_gml_response(response.text)
-            logging.info(f"[{layer_key}] {len(rows)} objets trouvés")
-        else: logging.warning(f"[{layer_key}] Erreur HTTP {response.status_code}")
-    except Exception as e: logging.error(f"Err Fetch {layer_key}: {e}")
-
-    # BSS scraping for water level
-    if layer_key == "BSS" and rows:
-        def scrape_bss(row):
-            bss_id = row.get("bss_id")
-            if not bss_id:
-                row['niveau_eau_scrappe'] = "-"
-                return row
-            clean_id = bss_id.split('/')[0] if '/' in bss_id else bss_id
-            url_base = core.CONFIG.get('geotoolbox', {}).get('infoterre_url')
+        if use_legacy:
+            # --- LEGACY MANUAL FETCH (Requests) ---
+            logger.info(f"[{layer_key}] Fetching in LEGACY mode (Carmen/INPN)")
+            params = {
+                "service": "WFS",
+                "version": wfs_version,
+                "request": "GetFeature",
+                "typeName": layer_name,
+                "bbox": f"{bbox['min_lon']},{bbox['min_lat']},{bbox['max_lon']},{bbox['max_lat']}",
+                "srsName": "EPSG:4326"
+            }
+            session = core.get_session()
             try:
-                r = session.get(f"{url_base}{clean_id}", timeout=4)
-                if r.status_code != 200: row['niveau_eau_scrappe'] = "Err HTTP"
-                else:
-                    html_flat = r.text.replace('\n', ' ').replace('\r', ' ')
-                    m = _BSS_NIVEAU_EAU_PATTERN.search(html_flat)
-                    row['niveau_eau_scrappe'] = f"{m.group(1)} m" if m else "Non indiqué"
-            except Exception:
-                row['niveau_eau_scrappe'] = "-"
-            return row
-            
-        max_workers = core.CONFIG.get('max_workers', 10)
-        with ThreadPoolExecutor(max_workers=max_workers) as executor: list(executor.map(scrape_bss, rows))
+                response = session.get(base_url, params=params, timeout=30)
+                if response.status_code == 200:
+                    rows = parse_gml_response(response.text)
+                    logger.info(f"[{layer_key}] {len(rows)} objets trouvés (Legacy)")
+                else: 
+                    logger.warning(f"[{layer_key}] Erreur HTTP {response.status_code}")
+            except Exception as e: 
+                logger.error(f"Err Fetch {layer_key}: {e}")
 
-    # SSP scraping for activity (export mode only)
-    elif layer_key == "SSP" and mode == 'export' and rows:
-        logging.info(f"Start Scraping Activités pour {len(rows)} sites SSP (Threads: {core.CONFIG.get('max_workers', 10)})...")
-        def scrape_ssp(row):
-            url = row.get('fiche_risque') or row.get('url_fiche') or row.get('lien_fiche')
-            row['activite_principale'] = scrape_ssp_activity(session, url)
-            return row
-            
-        max_workers = core.CONFIG.get('max_workers', 10)
-        with ThreadPoolExecutor(max_workers=max_workers) as executor: list(executor.map(scrape_ssp, rows))
+        else:
+            # --- MODERN FETCH (OWSLib) ---
+            try:
+                from owslib.wfs import WebFeatureService
+                
+                wfs = WebFeatureService(url=base_url, version=wfs_version)
+                kwargs = {
+                    'typename': [layer_name],
+                    'bbox': bbox_tuple
+                }
+                if wfs_version != '1.1.0':
+                     kwargs['srsname'] = 'EPSG:4326'
+
+                if wfs_version == '1.1.0':
+                     kwargs['outputFormat'] = 'text/xml; subtype=gml/3.1.1' 
+                
+                logger.info(f"[{layer_key}] Fetching OWSLib v{wfs_version} BBOX={bbox_tuple}")
+                response = wfs.getfeature(**kwargs)
+                
+                raw_gml = response.read()
+                gml_text = raw_gml.decode('utf-8', errors='replace')
+                
+                if "ExceptionReport" in gml_text and "ExceptionText" in gml_text:
+                     logger.error(f"[{layer_key}] WFS Service Exception: {gml_text[:200]}")
+                else:
+                    rows = parse_gml_response(gml_text)
+                    logger.info(f"[{layer_key}] {len(rows)} objets trouvés (OWSLib)")
+        
+            except ImportError:
+                logger.error("OWSLib not installed.")
+            except Exception as e:
+                logger.error(f"Err Fetch {layer_key}: {e}")
+
+        # Save WFS Results to Cache (24h)
+        if rows:
+             cache.set(cache_key_wfs, rows, expire=86400)
+
+
+    # --- ASYNC SCRAPING HELPERS ---
+    async def fetch_url(session, url: str, timeout: int = 10):
+        try:
+            async with session.get(url, timeout=timeout) as response:
+                if response.status != 200: return None, response.status
+                text = await response.text()
+                return text, 200
+        except Exception as e:
+            return None, str(e)
+
+    async def scrape_bss_row(session, feature: GeoFeature, url_base: str):
+        """Scrape BSS water level for a specific feature."""
+        bss_id = feature.id
+        if not bss_id:
+            feature.properties['niveau_eau_scrappe'] = "-"
+            return
+        
+        clean_id = bss_id.split('/')[0] if '/' in bss_id else bss_id
+        
+        # Check Cache
+        cache_key = f"SCRAPE_BSS_{clean_id}"
+        cached_val = cache.get(cache_key)
+        if cached_val:
+             feature.properties['niveau_eau_scrappe'] = cached_val
+             return
+
+        url = f"{url_base}{clean_id}"
+        text, status = await fetch_url(session, url, timeout=5)
+        
+        if status != 200:
+             feature.properties['niveau_eau_scrappe'] = "Err HTTP" if isinstance(status, int) else "-"
+        else:
+             html_flat = text.replace('\n', ' ').replace('\r', ' ')
+             m = _BSS_NIVEAU_EAU_PATTERN.search(html_flat)
+             val = f"{m.group(1)} m" if m else "Non indiqué"
+             feature.properties['niveau_eau_scrappe'] = val
+             cache.set(cache_key, val, expire=604800)
+
+    async def scrape_ssp_row(session, feature: GeoFeature):
+        """Scrape SSP activity for a specific feature."""
+        url = feature.properties.get('fiche_risque') or feature.properties.get('url_fiche') or feature.properties.get('lien_fiche')
+        if not url or "http" not in url: 
+            feature.properties['activite_principale'] = "-"
+            return
+
+        # Check Cache
+        cache_key = f"SCRAPE_SSP_{url}"
+        cached_val = cache.get(cache_key)
+        if cached_val:
+             feature.properties['activite_principale'] = cached_val
+             return
+
+        text, status = await fetch_url(session, url, timeout=8)
+        
+        if status != 200:
+             feature.properties['activite_principale'] = "Err HTTP"
+             return
+
+        html_flat = text.replace('\n', ' ').replace('\r', ' ')
+        html_flat = _WHITESPACE_PATTERN.sub(' ', html_flat)
+        m_prim = _ACTIVITY_PRIMARY_PATTERN.search(html_flat)
+        val = "Non détectée"
+        if m_prim:
+             val = _HTML_TAG_PATTERN.sub('', m_prim.group(1)).strip()
+        feature.properties['activite_principale'] = val
+        cache.set(cache_key, val, expire=604800)
+
+    async def process_batch(features: List[GeoFeature], layer_t: str):
+        """Process batch async scraping for BSS or SSP layers."""
+        url_base = core.CONFIG.get('geotoolbox', {}).get('infoterre_url')
+        timeout = aiohttp.ClientTimeout(total=20)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            tasks = []
+            for feature in features:
+                if layer_t == 'BSS':
+                    tasks.append(scrape_bss_row(session, feature, url_base))
+                elif layer_t == 'SSP':
+                    tasks.append(scrape_ssp_row(session, feature))
+            await asyncio.gather(*tasks)
+
+    # Dispatch to Async
+    if rows and layer_key == "BSS":
+        try:
+             import asyncio
+             import aiohttp
+             asyncio.run(process_batch(rows, "BSS"))
+        except ImportError:
+             logger.error("Missing aiohttp, skipping sync BSS scrape")
+        except Exception as e:
+             import traceback
+             logger.error(f"Async BSS Error: {e}")
+             traceback.print_exc()
+
+    elif rows and layer_key == "SSP" and mode == 'export':
+        logger.info(f"Start Scraping Activités pour {len(rows)} sites SSP (Async)...")
+        try:
+             import asyncio
+             import aiohttp
+             asyncio.run(process_batch(rows, "SSP"))
+        except Exception as e:
+             logger.error(f"Async SSP Error: {e}")
 
     return rows

@@ -11,9 +11,15 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/leaflet-control-geocoder/dist/Control.Geocoder.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="libs/lucide.js"></script>
     <!-- Leaflet Draw for polygon drawing -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
     <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+
+    <!-- Leaflet MarkerCluster -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css" />
+    <script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
 
     <link rel="stylesheet" href="css/style.css?v=2.6">
 </head>
@@ -60,11 +66,11 @@
                     </p>
                     <div style="margin-top: 40px;">
                         <!-- Note: This button target implies the presence of the 2nd dock item (geotoolbox) -->
-                        <button class="btn-glow"
+                        <button class="btn-shimmer" style="max-width: 250px; margin: 0 auto;"
                             onclick="switchView('cartographie', document.querySelectorAll('.dock-item')[1])">
-                            <!-- SVG Icon hardcoded for Home button for now, or loaded via JS? -->
-                            <!-- Let's put a generic icon or rely on the fact that JS isn't rendering icons here -->
-                            Lancer Cartographie
+                            <span class="btn-shimmer-content">
+                                <i data-lucide="map" style="width: 18px; height: 18px;"></i> Lancer Cartographie
+                            </span>
                         </button>
                     </div>
                 </div>

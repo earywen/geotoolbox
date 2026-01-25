@@ -135,3 +135,23 @@
 
 **Verification**: L'utilisateur peut basculer entre le plan clair et la vue satellite.
 
+---
+
+### Phase 7: Fonctionnalités Métier SSP
+**Status**: 🚀 In Progress
+**Objective**: Ajouter les données contextuelles indispensables pour une étude historique (A100).
+**Features**:
+1. Contexte Géologique (Carte Géol 1/50k)
+2. Contexte Hydro (Entités BD LISA)
+3. Enjeux Environnementaux (ZNIEFF, Natura 2000)
+4. Risques Naturels (Inondation/PPRI, Argiles)
+
+**Tasks**:
+1. [ ] Ajouter configuration des flux WMS/WFS (BRGM, INPN, Géorisques)
+2. [ ] Ajouter les couches dans `cartographie_core/models.py`
+3. [ ] Mettre à jour l'UI (Checkboxes) pour inclure ces nouvelles données
+4. [ ] Tester l'affichage WMS (Overlay) pour la Géologie
+5. [ ] Tester l'export Vectoriel pour ZNIEFF/Natura 2000
+
+**Verification**: Les nouvelles couches s'affichent sur la carte et sont exportables.
+

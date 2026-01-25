@@ -75,13 +75,16 @@ def init():
             "georisques_url": "https://georisques.gouv.fr/services",
             "brgm_wfs_url": "https://geoservices.brgm.fr/geologie",
             "ign_wfs_url": "https://data.geopf.fr/wfs/ows",
-            "infoterre_url": "http://infoterre.brgm.fr/fiche/"
+            "infoterre_url": "http://infoterre.brgm.fr/fiche/",
+            "inpn_wfs_url": "https://inpn.mnhn.fr/inspire/services/wfs", # Proxy/Alias often needed
+            "carmen_wfs_url": "http://ws.carmencarto.fr/WFS/119/fxx_inpn"
         },
         "orthohisto": {
             "wms_url": "https://wxs.ign.fr/ortho/geoportail/r/wms",
             "wfs_url": "https://wxs.ign.fr/ortho/geoportail/wfs",
             "download_url": "https://wxs.ign.fr/ortho/geoportail/r/wms"
-        }
+        },
+        "max_workers": 10
     }
 
     # Par défaut on cherche config.json à la racine interne
