@@ -35,34 +35,71 @@ _BSS_NIVEAU_EAU_PATTERN = re.compile(
 
 
 def scrape_ssp_activity(session, url):
-    """Scrape activity information from GeoRisques SSP page."""
+    """Scrape activity information from GeoRisques SSP page using BeautifulSoup."""
     if not url or "http" not in url: return "-"
+    
     try:
+        from bs4 import BeautifulSoup
         r = session.get(url, timeout=5)
         if r.status_code != 200: return "Err HTTP"
+        
+        soup = BeautifulSoup(r.text, 'lxml')
+        
+        # Method 1: Look for "Activité principale" in labels or dt
+        # The structure is often a table-like definition list or simple table
+        
+        # Try finding the specific span or td
+        # Pattern often: <td>Activité principale</td><td><span>...</span></td>
+        
+        container = soup.find(string=re.compile("Activité principale", re.IGNORECASE))
+        if container:
+            # Navigate up to parent and find the next sibling or value
+            # Structure varies, typically it's in a neighboring cell
+            # Case 1: <td>Title</td><td>Value</td>
+            parent_td = container.find_parent('td')
+            if parent_td:
+                next_td = parent_td.find_next_sibling('td')
+                if next_td:
+                    val = next_td.get_text(strip=True)
+                    if val: return val
+
+            # Case 2: <dt>Title</dt><dd>Value</dd>
+            parent_dt = container.find_parent('dt')
+            if parent_dt:
+                next_dd = parent_dt.find_next_sibling('dd')
+                if next_dd:
+                    val = next_dd.get_text(strip=True)
+                    if val: return val
+                    
+        # Fallback to regex if BS4 fails to find structure but text exists
+        # (Keeping legacy regex as fallback is safe)
         html = r.text.replace('\n', ' ').replace('\r', ' ')
         html = _WHITESPACE_PATTERN.sub(' ', html)
-
+        
         m_prim = _ACTIVITY_PRIMARY_PATTERN.search(html)
-        val_prim = ""
         if m_prim:
-            val_prim = _HTML_TAG_PATTERN.sub('', m_prim.group(1)).strip()
-        if val_prim and "Non renseignée" not in val_prim and "Indéterminé" not in val_prim:
-            return val_prim
+             val = _HTML_TAG_PATTERN.sub('', m_prim.group(1)).strip()
+             if val and "Non renseignée" not in val: return val
 
-        m_sec = _ACTIVITY_SECONDARY_PATTERN.search(html)
-        if m_sec:
-            val_sec = _HTML_TAG_PATTERN.sub('', m_sec.group(1)).strip()
-            if val_sec and "Non renseignée" not in val_sec:
-                return f"{val_sec} (Secondaire)"
-
-        m_dd = _ACTIVITY_DD_PATTERN.search(html)
-        if m_dd:
-            val_dd = _HTML_TAG_PATTERN.sub('', m_dd.group(1)).strip()
-            if val_dd: return val_dd
-
-        return val_prim if val_prim else "Non détectée"
-    except Exception: return "Err Scrap"
+        return "Non détectée"
+        
+    except ImportError:
+        # Fallback if BS4 not installed (graceful degradation)
+        logging.warning("BeautifulSoup not found, falling back to regex")
+        # Legacy Regex Code
+        try:
+            r = session.get(url, timeout=5)
+            html = r.text.replace('\n', ' ').replace('\r', ' ')
+            html = _WHITESPACE_PATTERN.sub(' ', html)
+            m_prim = _ACTIVITY_PRIMARY_PATTERN.search(html)
+            if m_prim:
+                return _HTML_TAG_PATTERN.sub('', m_prim.group(1)).strip()
+            return "Non détectée"
+        except:
+             return "Err Scrap"
+             
+    except Exception as e:
+        return f"Err: {str(e)[:10]}"
 
 
 def fetch_features(layer_key, bbox, mode='preview'):
@@ -85,20 +122,32 @@ def fetch_features(layer_key, bbox, mode='preview'):
     min_lon, min_lat = max(bbox['min_lon'], -180), max(bbox['min_lat'], -90)
     max_lon, max_lat = min(bbox['max_lon'], 180), min(bbox['max_lat'], 90)
 
-    # Par défaut WFS 1.0.0 (Lon,Lat)
+    # Determine Version (Default 1.0.0)
+    wfs_version = config.get("wfs_version", "1.0.0")
+    
+    # Generic Params
     params = {
         "service": "WFS",
-        "version": "1.0.0",
+        "version": wfs_version,
         "request": "GetFeature",
         "typeName": config["layer_name"],
-        "bbox": f"{min_lon},{min_lat},{max_lon},{max_lat}",
-        "srsName": "EPSG:4326"
+        "srsName": "EPSG:4326" 
     }
 
-    # SPÉCIFIQUE IGN : WFS 2.0.0 + Axis Order Lat,Lon pour EPSG:4326
+    # BBOX Handling depends on Version and Service
+    # WFS 1.0.0 -> Lon,Lat
+    # WFS 1.1.0 -> Usually Lat,Lon if URN used, but Server dependent.
+    # Our test showed INPN WFS 1.1.0 accepts Lon,Lat for "EPSG:4326"
+    # IGN uses 2.0.0 Lat,Lon
+    
     if config.get('url_key') == 'ign_wfs_url':
-        params['version'] = "2.0.0"
-        params['bbox'] = f"{min_lat},{min_lon},{max_lat},{max_lon}"
+         # FORCE IGN Specific configuration
+         params['version'] = "2.0.0"
+         params['bbox'] = f"{min_lat},{min_lon},{max_lat},{max_lon}"
+    else:
+         # Default Lon,Lat (Works for INPN 1.1.0 and Georisques 1.0.0/1.1.0)
+         params['bbox'] = f"{min_lon},{min_lat},{max_lon},{max_lat}"
+
 
     rows = []
     session = core.get_session()
@@ -130,15 +179,19 @@ def fetch_features(layer_key, bbox, mode='preview'):
             except Exception:
                 row['niveau_eau_scrappe'] = "-"
             return row
-        with ThreadPoolExecutor(max_workers=20) as executor: list(executor.map(scrape_bss, rows))
+            
+        max_workers = core.CONFIG.get('max_workers', 10)
+        with ThreadPoolExecutor(max_workers=max_workers) as executor: list(executor.map(scrape_bss, rows))
 
     # SSP scraping for activity (export mode only)
     elif layer_key == "SSP" and mode == 'export' and rows:
-        logging.info(f"Start Scraping Activités pour {len(rows)} sites SSP...")
+        logging.info(f"Start Scraping Activités pour {len(rows)} sites SSP (Threads: {core.CONFIG.get('max_workers', 10)})...")
         def scrape_ssp(row):
             url = row.get('fiche_risque') or row.get('url_fiche') or row.get('lien_fiche')
             row['activite_principale'] = scrape_ssp_activity(session, url)
             return row
-        with ThreadPoolExecutor(max_workers=20) as executor: list(executor.map(scrape_ssp, rows))
+            
+        max_workers = core.CONFIG.get('max_workers', 10)
+        with ThreadPoolExecutor(max_workers=max_workers) as executor: list(executor.map(scrape_ssp, rows))
 
     return rows

@@ -135,14 +135,31 @@ def parse_gml_response(xml_text):
     try:
         xml_content = re.sub(r'(</?)[a-zA-Z0-9]+:', r'\1', xml_text)
         root = ET.fromstring(xml_content)
+        
+        # WFS 1.0.0 uses featureMember (singular, one per feature)
         features = root.findall(".//featureMember") + root.findall(".//member")
+        
+        # WFS 1.1.0 uses featureMembers (plural, containing list of features)
+        feature_members = root.find(".//featureMembers")
+        if feature_members is not None:
+            features.extend(list(feature_members))
 
         for feature in features:
-            if len(list(feature)) == 0: continue
-            obj = list(feature)[0]
+            if len(list(feature)) == 0 and feature_members is None: 
+                continue
+            
+            if feature_members is not None and feature in feature_members:
+                obj = feature
+            else:
+                if len(list(feature)) > 0:
+                    obj = list(feature)[0]
+                else:
+                    continue
+
             props = {}
             geojson_geom, lat_center, lon_center = parse_geometry_hybrid(obj)
             for child in obj:
+
                 tag_raw = child.tag
                 if '}' in tag_raw:
                     tag_raw = tag_raw.split('}', 1)[1]
