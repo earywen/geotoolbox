@@ -83,52 +83,58 @@ def run_preview_logic(
     if reporter is None:
         reporter = CoreEventReporter()
 
-    for index, layer_key in enumerate(layers_list):
-        config = LAYERS_CONFIG.get(layer_key)
-        if not config:
-            continue
+    # Parallel Execution
+    with ThreadPoolExecutor(max_workers=12) as executor:
+        future_to_layer = {
+            executor.submit(fetch_features, layer_key, bbox, mode='preview'): layer_key 
+            for layer_key in layers_list 
+            if LAYERS_CONFIG.get(layer_key)
+        }
 
-        pct = int((index / len(layers_list)) * 100)
-        msg = f"Chargement {config['label']}..."
-        reporter.update(pct, msg)
+        completed_count = 0
+        total_count = len(future_to_layer)
 
-        rows = fetch_features(layer_key, bbox, mode='preview')
-        preview_items: List[Dict[str, Any]] = []
-        name_k = config["name_field"].lower()
-
-        for r in rows:
-            # Pydantic Model Access - Properties are in .properties dict
-            props = r.properties
+        for future in as_completed(future_to_layer):
+            layer_key = future_to_layer[future]
+            config = LAYERS_CONFIG[layer_key]
             
-            # Basic Latitude Filter (Fix for AttributeError)
-            # Some sources might provide LATITUDE_APPROX in properties
-            lat = props.get('LATITUDE_APPROX', 0)
-            
-            # Note: If checking searching by BBOX, this filter might be redundant/incorrect for some layers.
-            # Only apply if strictly needed or if LATITUDE_APPROX exists.
-            if isinstance(lat, (int, float)) and lat > 35:
-                 pass # Check passed
-            elif 'LATITUDE_APPROX' not in props: 
-                 pass # No lat info, assume valid (geometry check usually done elsewhere)
-            else:
-                 continue # Invalid lat
-            
-            raw_nom = props.get(name_k)
-            if not raw_nom or str(raw_nom).strip() == "" or raw_nom == "None":
-                raw_nom = props.get('bss_id') or props.get('code_bss') or r.id or "Sans nom"
+            completed_count += 1
+            pct = int((completed_count / total_count) * 100)
+            reporter.update(pct, f"Chargement {config['label']}...")
 
-            preview_items.append({
-                "nom": str(raw_nom),
-                "color": config["color"],
-                "geometry": r.geometry,
-                "details": props.get('niveau_eau_scrappe')
+            try:
+                rows = future.result()
+            except Exception as e:
+                logging.error(f"Preview Error {layer_key}: {e}")
+                rows = []
+
+            preview_items: List[Dict[str, Any]] = []
+            name_k = config["name_field"].lower()
+
+            for r in rows:
+                props = r.properties
+                lat = props.get('LATITUDE_APPROX', 0)
+                if isinstance(lat, (int, float)) and lat > 35: pass
+                elif 'LATITUDE_APPROX' not in props: pass
+                else: continue
+                
+                raw_nom = props.get(name_k)
+                if not raw_nom or str(raw_nom).strip() == "" or raw_nom == "None":
+                    raw_nom = props.get('bss_id') or props.get('code_bss') or r.id or "Sans nom"
+
+                preview_items.append({
+                    "nom": str(raw_nom),
+                    "color": config["color"],
+                    "geometry": r.geometry,
+                    "details": props.get('niveau_eau_scrappe')
+                })
+
+            results.append({
+                "key": layer_key,
+                "layer": config['label'],
+                "count": len(rows),
+                "items": preview_items
             })
-
-        results.append({
-            "layer": config['label'],
-            "count": len(rows),
-            "items": preview_items
-        })
 
     # Finalize
     reporter.update(100, 'Affichage...')

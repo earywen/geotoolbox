@@ -20,11 +20,16 @@ class CacheManager:
     _instance = None
     _cache = None
 
+    import threading
+    _lock = threading.Lock()
+
     @classmethod
     def get_instance(cls) -> "CacheManager":
         """Returns the singleton instance of CacheManager."""
         if cls._instance is None:
-            cls._instance = cls()
+            with cls._lock:
+                if cls._instance is None:
+                    cls._instance = cls()
         return cls._instance
 
     def __init__(self):

@@ -62,20 +62,13 @@ LAYERS_CONFIG: Dict[str, Dict[str, Any]] = {
         "name_field": "designation",
         "columns_mapping": {"code_bss": "Code", "designation": "Nom", "z_orifice": "Alt"}
     },
-    "BDLISA": {
-        "label": "Hydrogéologie (BD LISA) [HS]",
-        "url_key": "brgm_wfs_url",
-        "layer_name": "ENTITE_HYDROGEOLOGIQUE", # Complex layer structure
-        "format": "GML2",
-        "color": "#60a5fa",
-        "type": "polygon",
-        "name_field": "filiation",
-        "columns_mapping": {"code_entite": "Code", "filiation": "Filiation"}
-    },
+    # BDLISA Removed as requested
+
     "PARCELLE": {
         "label": "Parcelles (IGN)",
         "url_key": "ign_wfs_url",
         "layer_name": "CADASTRALPARCELS.PARCELLAIRE_EXPRESS:parcelle",
+        "wfs_version": "2.0.0",
         "format": "GML2",
         "color": "#eab308",
         "type": "polygon",
@@ -86,6 +79,7 @@ LAYERS_CONFIG: Dict[str, Dict[str, Any]] = {
         "label": "Cours d'eau (IGN)",
         "url_key": "ign_wfs_url",
         "layer_name": "BDTOPO_V3:cours_d_eau",
+        "wfs_version": "2.0.0",
         "format": "GML2",
         "color": "#0ea5e9",
         "type": "line",

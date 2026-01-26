@@ -138,13 +138,19 @@ class BurgeaplyApi:
         return cartographie.run_preview_logic(bbox, layers)
 
     def run_carto_export(self, bbox: Dict[str, float], layers: List[str], folder: str, path: str, 
-                         options: Dict[str, Any] = None, emprise: Dict[str, Any] = None) -> Dict[str, Any]:
+                         options: Dict[str, Any] = None, emprise: Dict[str, Any] = None, 
+                         radius_geojson: Dict[str, Any] = None) -> Dict[str, Any]:
         """Proxy for Cartographie unified export (vectors + rasters)."""
-        return cartographie.run_export_logic(bbox, layers, folder, path, options, emprise_geojson=emprise)
+        return cartographie.run_export_logic(bbox, layers, folder, path, options, 
+                                           emprise_geojson=emprise, radius_geojson=radius_geojson)
 
     def browse_folder(self) -> Optional[str]:
         """Opens native folder selection dialog (alias for select_directory)."""
         return self.select_directory()
+
+    def get_carto_config(self) -> Dict[str, Any]:
+        """Returns the configuration for cartography layers."""
+        return cartographie.LAYERS_CONFIG
 
     # --- FEEDBACK PROXIES ---
     def run_send_feedback(self, category: str, message: str, trigram: str, contact: str) -> bool:

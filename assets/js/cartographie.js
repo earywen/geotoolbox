@@ -152,6 +152,15 @@ class CartographieManager {
                     <input type="checkbox" id="chk_${key}" value="${key}" ${checked ? 'checked' : ''}>
                     <label for="chk_${key}" style="color:${color}">${label}</label>
                 `;
+
+                // Event Listener for Toggling
+                const chk = div.querySelector('input');
+                chk.addEventListener('change', () => {
+                    if (this.currentPreviewData) {
+                        this.renderPreview(this.currentPreviewData);
+                    }
+                });
+
                 container.appendChild(div);
             });
             console.log("[Cartographie] Layers loaded dynamically");
@@ -576,6 +585,17 @@ class CartographieManager {
         res.forEach(g => {
             if (!g.items) return;
 
+            // CHECKBOX CHECK: Only render if the corresponding checkbox is checked
+            // Fallback: If 'key' is missing (old backend), assume visible or check label? 
+            // Better to rely on key. g.key was added in backend.
+            let isVisible = true;
+            if (g.key) {
+                const chk = document.getElementById(`chk_${g.key}`);
+                if (chk && !chk.checked) isVisible = false;
+            }
+
+            if (!isVisible) return;
+
             // Optimization: Filter out invalid geometries beforehand
             const validItems = g.items.filter(i => i.geometry);
 
@@ -583,14 +603,22 @@ class CartographieManager {
                 // Create layer from GeoJSON
                 L.geoJSON(i.geometry, {
                     pointToLayer: (f, l) => L.circleMarker(l, {
-                        radius: 5,
+                        radius: 6, // Slightly larger for better hover target
                         fillColor: i.color,
                         color: "#fff",
-                        weight: 1,
-                        fillOpacity: 0.8
+                        weight: 1.5,
+                        fillOpacity: 0.9
                     }),
-                    style: { color: i.color, weight: 2 }
-                }).bindPopup(`<b>${g.layer}</b><br>${i.nom}`).addTo(this.geoJsonLayer);
+                    style: { color: i.color, weight: 2, opacity: 0.8 }
+                })
+                    .bindPopup(`<div style="font-size:12px"><b>${g.layer}</b><br>${i.nom}${i.details ? '<br><i>' + i.details + '</i>' : ''}</div>`)
+                    .bindTooltip(`<div style="font-weight:600; font-size:11px; color:${i.color}">${i.nom}</div>${i.details ? '<div style="font-size:10px; opacity:0.8">' + i.details + '</div>' : ''}`, {
+                        direction: 'top',
+                        sticky: true,
+                        className: 'carto-tooltip',
+                        opacity: 0.95
+                    })
+                    .addTo(this.geoJsonLayer);
             });
         });
     }

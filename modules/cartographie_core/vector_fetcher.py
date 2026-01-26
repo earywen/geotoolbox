@@ -80,7 +80,7 @@ def fetch_features(layer_key: str, bbox: Dict[str, float], mode: str = 'preview'
 
         wfs_version = config.get("wfs_version", "1.0.0")
         layer_name = config["layer_name"]
-        use_legacy = config.get('url_key') == 'carmen_wfs_url'
+        use_legacy = False # Force OWSLib for everyone since we fixed HTTPS
         rows = []
 
         if use_legacy:
@@ -96,7 +96,7 @@ def fetch_features(layer_key: str, bbox: Dict[str, float], mode: str = 'preview'
             }
             session = core.get_session()
             try:
-                response = session.get(base_url, params=params, timeout=30)
+                response = session.get(base_url, params=params, timeout=5)
                 if response.status_code == 200:
                     rows = parse_gml_response(response.text)
                     logger.info(f"[{layer_key}] {len(rows)} objets trouvés (Legacy)")
@@ -110,7 +110,7 @@ def fetch_features(layer_key: str, bbox: Dict[str, float], mode: str = 'preview'
             try:
                 from owslib.wfs import WebFeatureService
                 
-                wfs = WebFeatureService(url=base_url, version=wfs_version)
+                wfs = WebFeatureService(url=base_url, version=wfs_version, timeout=60)
                 kwargs = {
                     'typename': [layer_name],
                     'bbox': bbox_tuple
@@ -153,11 +153,11 @@ def fetch_features(layer_key: str, bbox: Dict[str, float], mode: str = 'preview'
         except Exception as e:
             return None, str(e)
 
-    async def scrape_bss_row(session, feature: GeoFeature, url_base: str):
+    async def scrape_bss_row(session, feature: dict, url_base: str):
         """Scrape BSS water level for a specific feature."""
-        bss_id = feature.id
+        bss_id = feature.get('bss_id') or feature.get('id')
         if not bss_id:
-            feature.properties['niveau_eau_scrappe'] = "-"
+            feature['niveau_eau_scrappe'] = "-"
             return
         
         clean_id = bss_id.split('/')[0] if '/' in bss_id else bss_id
@@ -165,40 +165,42 @@ def fetch_features(layer_key: str, bbox: Dict[str, float], mode: str = 'preview'
         # Check Cache
         cache_key = f"SCRAPE_BSS_{clean_id}"
         cached_val = cache.get(cache_key)
+        cached_val = cache.get(cache_key)
         if cached_val:
-             feature.properties['niveau_eau_scrappe'] = cached_val
+             feature['niveau_eau_scrappe'] = cached_val
              return
 
         url = f"{url_base}{clean_id}"
         text, status = await fetch_url(session, url, timeout=5)
         
         if status != 200:
-             feature.properties['niveau_eau_scrappe'] = "Err HTTP" if isinstance(status, int) else "-"
+             feature['niveau_eau_scrappe'] = "Err HTTP" if isinstance(status, int) else "-"
         else:
              html_flat = text.replace('\n', ' ').replace('\r', ' ')
              m = _BSS_NIVEAU_EAU_PATTERN.search(html_flat)
              val = f"{m.group(1)} m" if m else "Non indiqué"
-             feature.properties['niveau_eau_scrappe'] = val
+             feature['niveau_eau_scrappe'] = val
              cache.set(cache_key, val, expire=604800)
 
-    async def scrape_ssp_row(session, feature: GeoFeature):
+    async def scrape_ssp_row(session, feature: dict):
         """Scrape SSP activity for a specific feature."""
-        url = feature.properties.get('fiche_risque') or feature.properties.get('url_fiche') or feature.properties.get('lien_fiche')
+        url = feature.get('fiche_risque') or feature.get('url_fiche') or feature.get('lien_fiche')
         if not url or "http" not in url: 
-            feature.properties['activite_principale'] = "-"
+            feature['activite_principale'] = "-"
             return
 
         # Check Cache
         cache_key = f"SCRAPE_SSP_{url}"
         cached_val = cache.get(cache_key)
+        cached_val = cache.get(cache_key)
         if cached_val:
-             feature.properties['activite_principale'] = cached_val
+             feature['activite_principale'] = cached_val
              return
 
         text, status = await fetch_url(session, url, timeout=8)
         
         if status != 200:
-             feature.properties['activite_principale'] = "Err HTTP"
+             feature['activite_principale'] = "Err HTTP"
              return
 
         html_flat = text.replace('\n', ' ').replace('\r', ' ')
@@ -207,10 +209,10 @@ def fetch_features(layer_key: str, bbox: Dict[str, float], mode: str = 'preview'
         val = "Non détectée"
         if m_prim:
              val = _HTML_TAG_PATTERN.sub('', m_prim.group(1)).strip()
-        feature.properties['activite_principale'] = val
+        feature['activite_principale'] = val
         cache.set(cache_key, val, expire=604800)
 
-    async def process_batch(features: List[GeoFeature], layer_t: str):
+    async def process_batch(features: List[dict], layer_t: str):
         """Process batch async scraping for BSS or SSP layers."""
         url_base = core.CONFIG.get('geotoolbox', {}).get('infoterre_url')
         timeout = aiohttp.ClientTimeout(total=20)
@@ -224,7 +226,7 @@ def fetch_features(layer_key: str, bbox: Dict[str, float], mode: str = 'preview'
             await asyncio.gather(*tasks)
 
     # Dispatch to Async
-    if rows and layer_key == "BSS":
+    if rows and layer_key == "BSS" and mode == 'export':
         try:
              import asyncio
              import aiohttp

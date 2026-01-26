@@ -77,7 +77,7 @@ def init():
             "ign_wfs_url": "https://data.geopf.fr/wfs/ows",
             "infoterre_url": "http://infoterre.brgm.fr/fiche/",
             "inpn_wfs_url": "https://inpn.mnhn.fr/inspire/services/wfs", # Proxy/Alias often needed
-            "carmen_wfs_url": "http://ws.carmencarto.fr/WFS/119/fxx_inpn"
+            "carmen_wfs_url": "https://ws.carmencarto.fr/WFS/119/fxx_inpn"
         },
         "orthohisto": {
             "wms_url": "https://wxs.ign.fr/ortho/geoportail/r/wms",

@@ -445,24 +445,7 @@ def parse_gml_response(xml_text):
                 rows.append(props)
     except Exception as e: logging.error(f"Erreur XML: {e}")
     
-    # Convert dicts to GeoFeature objects
-    feature_objects = []
-    from .models import GeoFeature
-    
-    for row in rows:
-        # Extract ID
-        f_id = row.get('id') or row.get('bss_id') or str(id(row))
-        # Extract Geometry
-        geom = row.pop('geometry', None)
-        # Remaining are properties
-        
-        feature_objects.append(GeoFeature(
-            id=f_id,
-            geometry=geom,
-            properties=row
-        ))
-        
-    return feature_objects
+    return rows
 
 
 # Alias for backward compatibility
