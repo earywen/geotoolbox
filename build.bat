@@ -13,8 +13,8 @@ python -m PyInstaller Burgeaply.spec
 
 echo.
 echo ==========================================
-if exist "dist\BURGEAPLY.exe" (
-    echo [SUCCES] L'executable est pret : dist\BURGEAPLY.exe
+if exist "dist\Burgeaply\Burgeaply.exe" (
+    echo [SUCCES] L'executable est pret : dist\Burgeaply\Burgeaply.exe
 ) else (
     echo [ERREUR] La construction a echoue.
 )

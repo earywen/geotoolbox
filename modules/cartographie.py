@@ -112,7 +112,10 @@ def run_preview_logic(
             name_k = config["name_field"].lower()
 
             for r in rows:
-                props = r.properties
+                if isinstance(r, dict):
+                    props = r.get('properties', {})
+                else:
+                    props = r.properties
                 lat = props.get('LATITUDE_APPROX', 0)
                 if isinstance(lat, (int, float)) and lat > 35: pass
                 elif 'LATITUDE_APPROX' not in props: pass

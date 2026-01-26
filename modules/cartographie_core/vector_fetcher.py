@@ -155,10 +155,11 @@ def fetch_features(layer_key: str, bbox: Dict[str, float], mode: str = 'preview'
 
     async def scrape_bss_row(session, feature: dict, url_base: str):
         """Scrape BSS water level for a specific feature."""
+        # Fix: Ensure we are working with the properties dict
         if isinstance(feature, GeoFeature):
             props = feature.properties
         else:
-             props = feature
+            props = feature
 
         bss_id = props.get('bss_id') or props.get('id')
         if not bss_id:
@@ -169,8 +170,10 @@ def fetch_features(layer_key: str, bbox: Dict[str, float], mode: str = 'preview'
         
         # Check Cache
         cache_key = f"SCRAPE_BSS_{clean_id}"
+        from modules.cache_manager import get_cache
+        cache = get_cache()
         cached_val = cache.get(cache_key)
-        cached_val = cache.get(cache_key)
+        
         if cached_val:
              props['niveau_eau_scrappe'] = cached_val
              return
@@ -189,6 +192,7 @@ def fetch_features(layer_key: str, bbox: Dict[str, float], mode: str = 'preview'
 
     async def scrape_ssp_row(session, feature: Any):
         """Scrape SSP activity for a specific feature."""
+        # Fix: Ensure we are working with the properties dict
         if isinstance(feature, GeoFeature):
              props = feature.properties
         else:
@@ -198,6 +202,9 @@ def fetch_features(layer_key: str, bbox: Dict[str, float], mode: str = 'preview'
         if not url or "http" not in url: 
             props['activite_principale'] = "-"
             return
+
+        from modules.cache_manager import get_cache
+        cache = get_cache()
 
         # Check Cache
         cache_key = f"SCRAPE_SSP_{url}"

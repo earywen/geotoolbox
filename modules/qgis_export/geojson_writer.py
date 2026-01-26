@@ -92,7 +92,17 @@ def rows_to_geojson(rows: List[Dict[str, Any]], layer_name: str = "layer") -> Di
     features = []
     
     for row in rows:
-        geometry = row.get('geometry')
+        # Handle GeoFeature objects (Pydantic models)
+        if hasattr(row, 'properties') and hasattr(row, 'geometry'):
+             geometry = row.geometry
+             row_data = row.properties
+        elif isinstance(row, dict):
+             geometry = row.get('geometry')
+             row_data = row
+        else:
+             # Fallback or unknown type
+             continue
+
         if not geometry:
             continue
         
@@ -101,7 +111,7 @@ def rows_to_geojson(rows: List[Dict[str, Any]], layer_name: str = "layer") -> Di
         
         # Copy properties (all fields except geometry and internal fields)
         properties = {
-            k: v for k, v in row.items() 
+            k: v for k, v in row_data.items() 
             if k not in ('geometry', 'LATITUDE_APPROX', 'LONGITUDE_APPROX', 'boundedBy')
             and v is not None
         }

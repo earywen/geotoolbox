@@ -1,11 +1,21 @@
 # modules/version.py
 
 # --- INFO ACTUELLE ---
-CURRENT_VERSION = "2.1.0"  # Fort Knox Update (Sécurité & Qualité)
-RELEASE_DATE = "17 Janvier 2026"
+CURRENT_VERSION = "2.1.1"  # Hotfix Build
+RELEASE_DATE = "26 Janvier 2026"
 
 # --- HISTORIQUE (Le plus récent en haut) ---
 CHANGELOG = [
+    {
+        "version": "2.1.1",
+        "date": "26 Janvier 2026",
+        "type": "patch",
+        "changes": [
+            "✅ AutoLabo : Correction de la détection des laboratoires qui pouvait échouer sur certains postes.",
+            "🗺️ Cartographie : Réparation de l'export des données (Excel/GIS) qui bloquait l'application.",
+            "🔧 Système : Mise à jour des composants internes pour une meilleure stabilité."
+        ]
+    },
     {
         "version": "2.1.0",
         "date": "17 Janvier 2026",

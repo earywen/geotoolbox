@@ -68,6 +68,18 @@ class ProviderRegistry:
         provider_path = self.providers_dir / provider_id / "provider.yaml"
 
         if not provider_path.exists():
+            # DEBUG PATH ISSUE
+            logger.error(f"DEBUG: __file__={__file__}")
+            logger.error(f"DEBUG: provider_path={provider_path}")
+            logger.error(f"DEBUG: absolute={provider_path.resolve()}")
+            try:
+                if provider_path.parent.exists():
+                    logger.error(f"DEBUG: Parent contents: {[p.name for p in provider_path.parent.iterdir()]}")
+                else:
+                    logger.error(f"DEBUG: Parent directory does not exist: {provider_path.parent}")
+            except Exception as ex:
+                logger.error(f"DEBUG: Error listing parent: {ex}")
+                
             raise FileNotFoundError(
                 f"Provider config not found: {provider_path}"
             )
