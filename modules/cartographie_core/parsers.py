@@ -389,63 +389,7 @@ def parse_geometry_hybrid(element):
     except Exception:
         return None, 0, 0
 
-def parse_gml_response(xml_text):
-    """Parse complete GML WFS response into feature list."""
-    rows = []
-    try:
-        xml_content = re.sub(r'(</?)[a-zA-Z0-9]+:', r'\1', xml_text)
-        root = ET.fromstring(xml_content)
-        
-        # WFS 1.0.0 uses featureMember (singular, one per feature)
-        features = root.findall(".//featureMember") + root.findall(".//member")
-        
-        # WFS 1.1.0 uses featureMembers (plural, containing list of features)
-        feature_members = root.find(".//featureMembers")
-        if feature_members is not None:
-            features.extend(list(feature_members))
 
-        for feature in features:
-            if len(list(feature)) == 0 and feature_members is None: 
-                continue
-            
-            if feature_members is not None and feature in feature_members:
-                obj = feature
-            else:
-                if len(list(feature)) > 0:
-                    obj = list(feature)[0]
-                else:
-                    continue
-
-            props = {}
-            geojson_geom, lat_center, lon_center = parse_geometry_hybrid(obj)
-            for child in obj:
-
-                tag_raw = child.tag
-                if '}' in tag_raw:
-                    tag_raw = tag_raw.split('}', 1)[1]
-
-                tag_clean = tag_raw.lower().strip()
-
-                if "geometry" not in tag_clean and "boundedby" not in tag_clean:
-                    if child.text: props[tag_clean] = child.text.strip()
-            if geojson_geom:
-                props['geometry'] = geojson_geom
-                props['LATITUDE_APPROX'] = lat_center
-                props['LONGITUDE_APPROX'] = lon_center
-                if "code_bss" in props: props["bss_id"] = props["code_bss"]
-                if "code_ssp" in props: props["id"] = props["code_ssp"]
-
-                # --- FORMATAGE SPÉCIFIQUE PARCELLES ---
-                if "section" in props and "numero" in props:
-                    lbl = f"Section {props['section']} n°{props['numero']}"
-                    if "contenance" in props:
-                        lbl += f" ({props['contenance']} m²)"
-                    props["label_parcelle"] = lbl
-
-                rows.append(props)
-    except Exception as e: logging.error(f"Erreur XML: {e}")
-    
-    return rows
 
 
 # Alias for backward compatibility

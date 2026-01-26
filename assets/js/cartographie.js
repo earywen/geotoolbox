@@ -609,15 +609,20 @@ class CartographieManager {
                         weight: 1.5,
                         fillOpacity: 0.9
                     }),
-                    style: { color: i.color, weight: 2, opacity: 0.8 }
+                    style: { color: i.color, weight: 2, opacity: 0.8 },
+                    onEachFeature: (feature, layer) => {
+                        const popupContent = `<div style="font-size:12px"><b>${g.layer}</b><br>${i.nom}${i.details ? '<br><i>' + i.details + '</i>' : ''}</div>`;
+                        const tooltipContent = `<div style="font-weight:600; font-size:11px; color:${i.color}">${i.nom}</div>${i.details ? '<div style="font-size:10px; opacity:0.8">' + i.details + '</div>' : ''}`;
+
+                        layer.bindPopup(popupContent);
+                        layer.bindTooltip(tooltipContent, {
+                            direction: 'top',
+                            sticky: true,
+                            className: 'carto-tooltip',
+                            opacity: 0.95
+                        });
+                    }
                 })
-                    .bindPopup(`<div style="font-size:12px"><b>${g.layer}</b><br>${i.nom}${i.details ? '<br><i>' + i.details + '</i>' : ''}</div>`)
-                    .bindTooltip(`<div style="font-weight:600; font-size:11px; color:${i.color}">${i.nom}</div>${i.details ? '<div style="font-size:10px; opacity:0.8">' + i.details + '</div>' : ''}`, {
-                        direction: 'top',
-                        sticky: true,
-                        className: 'carto-tooltip',
-                        opacity: 0.95
-                    })
                     .addTo(this.geoJsonLayer);
             });
         });

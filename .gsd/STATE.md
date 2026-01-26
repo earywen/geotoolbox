@@ -19,6 +19,9 @@
 - **Fix:** Fixed export crash (GeoFeature immutability) & increased Carmen timeout (60s).
 - **Fix:** Updated async scraping (BSS/SSP) to handle dictionary data structures correctly.
 - **Feature:** Added hover tooltips for preview objects (showing Name + Details).
+- **Fix:** Resolved map preview tooltip issue (Leaflet binding moved to `onEachFeature`).
+- **Fix:** Fixed `AttributeError: 'dict' object has no attribute 'properties'` by removing duplicate parser.
+- **Fix:** Increased WFS timeout to 90s for ZNIEFF2/Carmen layers.
 
 ---
 
