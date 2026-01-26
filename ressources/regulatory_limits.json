@@ -1,0 +1,530 @@
+{
+  "Couleur": {
+    "unit": null,
+    "lq": null,
+    "reg_crit": null,
+    "reg_brut": null,
+    "reg_pot": null,
+    "reg_oms": null
+  },
+  "Intensité": {
+    "unit": null,
+    "lq": null,
+    "reg_crit": null,
+    "reg_brut": null,
+    "reg_pot": null,
+    "reg_oms": null
+  },
+  "Teinte": {
+    "unit": null,
+    "lq": null,
+    "reg_crit": null,
+    "reg_brut": null,
+    "reg_pot": null,
+    "reg_oms": null
+  },
+  "Odeur": {
+    "unit": null,
+    "lq": null,
+    "reg_crit": null,
+    "reg_brut": null,
+    "reg_pot": null,
+    "reg_oms": null
+  },
+  "Turbidité - laboratoire": {
+    "unit": "NFU",
+    "lq": "0.1",
+    "reg_crit": "1",
+    "reg_brut": null,
+    "reg_pot": "1",
+    "reg_oms": null
+  },
+  "MES - Laboratoire": {
+    "unit": "mg/L",
+    "lq": "2",
+    "reg_crit": null,
+    "reg_brut": null,
+    "reg_pot": null,
+    "reg_oms": null
+  },
+  "Température (in situ)": {
+    "unit": null,
+    "lq": null,
+    "reg_crit": null,
+    "reg_brut": null,
+    "reg_pot": null,
+    "reg_oms": null
+  },
+  "RedOx (in situ)": {
+    "unit": null,
+    "lq": null,
+    "reg_crit": null,
+    "reg_brut": null,
+    "reg_pot": null,
+    "reg_oms": null
+  },
+  "Conductivité - laboratoire": {
+    "unit": null,
+    "lq": null,
+    "reg_crit": null,
+    "reg_brut": null,
+    "reg_pot": null,
+    "reg_oms": null
+  },
+  "Métaux et métalloïdes": {
+    "unit": null,
+    "lq": null,
+    "reg_crit": null,
+    "reg_brut": null,
+    "reg_pot": null,
+    "reg_oms": null
+  },
+  "Arsenic (As)": {
+    "unit": "µg/L",
+    "lq": "5",
+    "reg_crit": "10",
+    "reg_brut": "100",
+    "reg_pot": "10",
+    "reg_oms": "10"
+  },
+  "Baryum (Ba)": {
+    "unit": "µg/L",
+    "lq": "10",
+    "reg_crit": "700",
+    "reg_brut": null,
+    "reg_pot": "700",
+    "reg_oms": "1300"
+  },
+  "Cadmium (Cd)": {
+    "unit": "µg/L",
+    "lq": "0.1",
+    "reg_crit": "5",
+    "reg_brut": "5",
+    "reg_pot": "5",
+    "reg_oms": "3"
+  },
+  "Chrome (Cr)": {
+    "unit": "µg/L",
+    "lq": "2",
+    "reg_crit": "50",
+    "reg_brut": "50",
+    "reg_pot": "50",
+    "reg_oms": "50"
+  },
+  "Cuivre (Cu)": {
+    "unit": "µg/L",
+    "lq": "2",
+    "reg_crit": "2000",
+    "reg_brut": null,
+    "reg_pot": "2000",
+    "reg_oms": "2000"
+  },
+  "Fer (Fe)": {
+    "unit": "µg/L",
+    "lq": "20",
+    "reg_crit": "200",
+    "reg_brut": null,
+    "reg_pot": "200",
+    "reg_oms": null
+  },
+  "Manganèse (Mn)": {
+    "unit": "µg/L",
+    "lq": "1",
+    "reg_crit": null,
+    "reg_brut": null,
+    "reg_pot": "50",
+    "reg_oms": null
+  },
+  "Mercure (Hg)": {
+    "unit": "µg/L",
+    "lq": "30",
+    "reg_crit": "1",
+    "reg_brut": "1",
+    "reg_pot": "1",
+    "reg_oms": "6"
+  },
+  "Nickel (Ni)": {
+    "unit": "µg/L",
+    "lq": "5",
+    "reg_crit": "20",
+    "reg_brut": "20",
+    "reg_pot": "20",
+    "reg_oms": "70"
+  },
+  "Plomb (Pb)": {
+    "unit": "µg/L",
+    "lq": "5",
+    "reg_crit": "10",
+    "reg_brut": "50",
+    "reg_pot": "10",
+    "reg_oms": "10"
+  },
+  "Sélénium (Se)": {
+    "unit": "µg/L",
+    "lq": "5",
+    "reg_crit": "10",
+    "reg_brut": "20",
+    "reg_pot": "20",
+    "reg_oms": "40"
+  },
+  "Zinc (Zn)": {
+    "unit": "µg/L",
+    "lq": "2",
+    "reg_crit": "5000",
+    "reg_brut": "5000",
+    "reg_pot": null,
+    "reg_oms": null
+  },
+  "COHV": {
+    "unit": null,
+    "lq": null,
+    "reg_crit": null,
+    "reg_brut": null,
+    "reg_pot": null,
+    "reg_oms": null
+  },
+  "Tétrachloroéthylène (PCE)": {
+    "unit": "µg/L",
+    "lq": "0.1",
+    "reg_crit": "10",
+    "reg_brut": null,
+    "reg_pot": null,
+    "reg_oms": "40"
+  },
+  "Trichloroéthylène (TCE)": {
+    "unit": "µg/L",
+    "lq": "0.5",
+    "reg_crit": "10",
+    "reg_brut": null,
+    "reg_pot": null,
+    "reg_oms": "20"
+  },
+  "cis-1,2-dichloroéthylène": {
+    "unit": "µg/L",
+    "lq": "0.5",
+    "reg_crit": null,
+    "reg_brut": null,
+    "reg_pot": null,
+    "reg_oms": null
+  },
+  "trans-1,2-dichloroéthylène": {
+    "unit": "µg/L",
+    "lq": "0.5",
+    "reg_crit": null,
+    "reg_brut": null,
+    "reg_pot": null,
+    "reg_oms": null
+  },
+  "1,1-dichloroéthylène": {
+    "unit": "µg/L",
+    "lq": "0.1",
+    "reg_crit": null,
+    "reg_brut": null,
+    "reg_pot": null,
+    "reg_oms": null
+  },
+  "Chlorure de Vinyle": {
+    "unit": "µg/L",
+    "lq": "0.2",
+    "reg_crit": "0.5",
+    "reg_brut": null,
+    "reg_pot": "0.5",
+    "reg_oms": "0.3"
+  },
+  "1,1,2 trichloroéthane": {
+    "unit": "µg/L",
+    "lq": "0.5",
+    "reg_crit": null,
+    "reg_brut": null,
+    "reg_pot": null,
+    "reg_oms": null
+  },
+  "1,1,1 trichloroéthane": {
+    "unit": "µg/L",
+    "lq": "0.5",
+    "reg_crit": null,
+    "reg_brut": null,
+    "reg_pot": null,
+    "reg_oms": null
+  },
+  "1,2 dichloroéthane": {
+    "unit": "µg/L",
+    "lq": "0.5",
+    "reg_crit": "3",
+    "reg_brut": null,
+    "reg_pot": "3",
+    "reg_oms": "30"
+  },
+  "1,1 dichloroéthane": {
+    "unit": "µg/L",
+    "lq": "0.5",
+    "reg_crit": null,
+    "reg_brut": null,
+    "reg_pot": null,
+    "reg_oms": null
+  },
+  "Tétrachlorométhane (tétrachlorure de carbone)": {
+    "unit": "µg/L",
+    "lq": "0.1",
+    "reg_crit": null,
+    "reg_brut": null,
+    "reg_pot": null,
+    "reg_oms": "4"
+  },
+  "Trichlorométhane (chloroforme) (5)": {
+    "unit": "µg/L",
+    "lq": "0.5",
+    "reg_crit": "2.5",
+    "reg_brut": null,
+    "reg_pot": "100",
+    "reg_oms": "300"
+  },
+  "Dichlorométhane": {
+    "unit": "µg/L",
+    "lq": "0.5",
+    "reg_crit": null,
+    "reg_brut": null,
+    "reg_pot": null,
+    "reg_oms": "20"
+  },
+  "Somme des COHV": {
+    "unit": "µg/L",
+    "lq": null,
+    "reg_crit": null,
+    "reg_brut": null,
+    "reg_pot": null,
+    "reg_oms": null
+  },
+  "Polluants organiques persistants": {
+    "unit": null,
+    "lq": null,
+    "reg_crit": null,
+    "reg_brut": null,
+    "reg_pot": null,
+    "reg_oms": null
+  },
+  "Aldrine (7)": {
+    "unit": "µg/L",
+    "lq": "0.01",
+    "reg_crit": null,
+    "reg_brut": "2",
+    "reg_pot": "0.03",
+    "reg_oms": "0.03"
+  },
+  "Dieldrine (7)": {
+    "unit": "µg/L",
+    "lq": "0.01",
+    "reg_crit": null,
+    "reg_brut": "2",
+    "reg_pot": "0.03",
+    "reg_oms": "0.03"
+  },
+  "Lindane (gamma HCH) (7)": {
+    "unit": "µg/L",
+    "lq": "0.01",
+    "reg_crit": null,
+    "reg_brut": "2",
+    "reg_pot": "0.1",
+    "reg_oms": "2"
+  },
+  "Ensemble HCH (alpha, beta, gamma) (6)": {
+    "unit": "µg/L",
+    "lq": null,
+    "reg_crit": null,
+    "reg_brut": "5",
+    "reg_pot": "0.5",
+    "reg_oms": null
+  },
+  "Hexachlorobenzène (7)": {
+    "unit": "µg/L",
+    "lq": "0.01",
+    "reg_crit": null,
+    "reg_brut": "2",
+    "reg_pot": "0.1",
+    "reg_oms": null
+  },
+  "Somme DDT, DDE, DDD (7)": {
+    "unit": "µg/L",
+    "lq": null,
+    "reg_crit": null,
+    "reg_brut": "2",
+    "reg_pot": "0.1",
+    "reg_oms": "1"
+  },
+  "Cations et anions": {
+    "unit": null,
+    "lq": null,
+    "reg_crit": null,
+    "reg_brut": null,
+    "reg_pot": null,
+    "reg_oms": null
+  },
+  "Ammonium": {
+    "unit": "mg/L",
+    "lq": "0.02",
+    "reg_crit": "0.5",
+    "reg_brut": "4",
+    "reg_pot": "0.1",
+    "reg_oms": null
+  },
+  "Chlorures": {
+    "unit": "mg/L",
+    "lq": "2",
+    "reg_crit": null,
+    "reg_brut": null,
+    "reg_pot": null,
+    "reg_oms": null
+  },
+  "COT": {
+    "unit": "mg/L",
+    "lq": "0.3",
+    "reg_crit": null,
+    "reg_brut": null,
+    "reg_pot": null,
+    "reg_oms": null
+  },
+  "Demande biologique en oxygène 5 j (DBO 5)": {
+    "unit": "mg/L",
+    "lq": "1",
+    "reg_crit": null,
+    "reg_brut": null,
+    "reg_pot": null,
+    "reg_oms": null
+  },
+  "Demande chimique en oxygène (DCO)": {
+    "unit": "mg/L",
+    "lq": "5",
+    "reg_crit": null,
+    "reg_brut": null,
+    "reg_pot": null,
+    "reg_oms": null
+  },
+  "Nitrites": {
+    "unit": "mg/L",
+    "lq": "0.01",
+    "reg_crit": "0.3",
+    "reg_brut": null,
+    "reg_pot": "0.5",
+    "reg_oms": "3"
+  },
+  "Nitrates": {
+    "unit": "mg/L",
+    "lq": "0.05",
+    "reg_crit": "50",
+    "reg_brut": "100",
+    "reg_pot": "50",
+    "reg_oms": "50"
+  },
+  "Orthophosphates": {
+    "unit": "mg/L",
+    "lq": "0.01",
+    "reg_crit": "0.5",
+    "reg_brut": null,
+    "reg_pot": null,
+    "reg_oms": null
+  },
+  "Sulfates": {
+    "unit": "mg/L",
+    "lq": "1",
+    "reg_crit": null,
+    "reg_brut": "250",
+    "reg_pot": "250",
+    "reg_oms": null
+  },
+  "n.d. : non détecté / n.a. : non analysé": {
+    "unit": null,
+    "lq": null,
+    "reg_crit": null,
+    "reg_brut": null,
+    "reg_pot": null,
+    "reg_oms": null
+  },
+  "(1) Arrêté modifié par l'arrêté du 04/08/2017 et par l'arrêté du 30/12/2022": {
+    "unit": null,
+    "lq": null,
+    "reg_crit": null,
+    "reg_brut": null,
+    "reg_pot": null,
+    "reg_oms": null
+  },
+  "(2) Arrêté du 17/12/2008 modifié par l'arrêté du 09/10/2023": {
+    "unit": null,
+    "lq": null,
+    "reg_crit": null,
+    "reg_brut": null,
+    "reg_pot": null,
+    "reg_oms": null
+  },
+  "(3) Annexe 2 arrêté du 11/01/07 : valeur limite pour l'ensemble des hydrocarbures, fraction C10-C40": {
+    "unit": null,
+    "lq": null,
+    "reg_crit": null,
+    "reg_brut": null,
+    "reg_pot": null,
+    "reg_oms": null
+  },
+  "(4) Annexe 1 arrêté du 11/01/07 : somme des chloroforme, bromoforme, dibromochlorométhane, bromodichlorométhane": {
+    "unit": null,
+    "lq": null,
+    "reg_crit": null,
+    "reg_brut": null,
+    "reg_pot": null,
+    "reg_oms": null
+  },
+  "(5) Annexe 1 arrêté du 11/01/07 : 25 µg/L jusque 12/2013, 10 µg/L à partir de 2014": {
+    "unit": null,
+    "lq": null,
+    "reg_crit": null,
+    "reg_brut": null,
+    "reg_pot": null,
+    "reg_oms": null
+  },
+  "(6) Annexe 1 et 2 arrêté du 11/01/07 : Valeur définie pour la somme des pesticides": {
+    "unit": null,
+    "lq": null,
+    "reg_crit": null,
+    "reg_brut": null,
+    "reg_pot": null,
+    "reg_oms": null
+  },
+  "(7) Annexe 1 et 2 arrêté du 11/01/07 : Valeur définie pour chaque pesticide individuellement": {
+    "unit": null,
+    "lq": null,
+    "reg_crit": null,
+    "reg_brut": null,
+    "reg_pot": null,
+    "reg_oms": null
+  },
+  "(8) Arrêté du 17/12/2008 modifié par l'arrêté du 09/10/2023 : Valeur seuil applicable uniquement aux aquifères non influencés pour ce paramètre par le contexte géologique-à définir localement pour les nappes dont le contexte géologique influence ce paramètre ou pour les nappes sous influence marine.": {
+    "unit": null,
+    "lq": null,
+    "reg_crit": null,
+    "reg_brut": null,
+    "reg_pot": null,
+    "reg_oms": null
+  },
+  "concentration supérieure à un des seuils eau potable": {
+    "unit": null,
+    "lq": null,
+    "reg_crit": null,
+    "reg_brut": null,
+    "reg_pot": null,
+    "reg_oms": null
+  },
+  "concentration supérieure aux seuils de l'arrêté du 17/12/08": {
+    "unit": null,
+    "lq": null,
+    "reg_crit": null,
+    "reg_brut": null,
+    "reg_pot": null,
+    "reg_oms": null
+  },
+  "concentration supérieure au seuil eaux brutes": {
+    "unit": null,
+    "lq": null,
+    "reg_crit": null,
+    "reg_brut": null,
+    "reg_pot": null,
+    "reg_oms": null
+  }
+}
