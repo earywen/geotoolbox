@@ -21,7 +21,7 @@ from .config import ExportOptions, RASTER_CONFIG
 from .parsers import parse_gml_response, parse_wfs_response
 from .maths import get_elevation_ign_only, get_local_slope_vector, calculate_geometrics
 from .vector_fetcher import fetch_features
-from .vector_export import generate_excel_for_layer
+from .vector_export import prepare_layer_export_data, generate_unified_excel
 
 # Raster exports
 from .raster_fetcher import IGN_MOSAICS, download_wms, process_all_pva, ensure_folder

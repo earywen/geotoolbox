@@ -376,34 +376,35 @@ LAYER_CATEGORIES: Dict[str, Dict[str, Any]] = {
         "description": "Couverture et usage du sol",
         "heavy_category": True,
         "layers": {
-            "OCSGE_COUVERTURE": _layer(
-                "OCS GE - Couverture", "ign_wfs_url",
-                "OCSGE.COUVERTURE.LATEST:couverture_du_sol",
-                "#8b5cf6", "polygon", "code_cs", wfs_version="2.0.0",
-                heavy=True
-            ),
-            "OCSGE_USAGE": _layer(
-                "OCS GE - Usage", "ign_wfs_url",
-                "OCSGE.USAGE.LATEST:usage_du_sol",
-                "#a78bfa", "polygon", "code_us", wfs_version="2.0.0",
-                heavy=True
-            ),
+            # OCSGE layers are not currently available on national WFS
+            # "OCSGE_COUVERTURE": _layer(
+            #     "OCS GE - Couverture", "ign_wfs_url",
+            #     "OCSGE.COUVERTURE.LATEST:couverture_du_sol",
+            #     "#8b5cf6", "polygon", "code_cs", wfs_version="2.0.0",
+            #     heavy=True
+            # ),
+            # "OCSGE_USAGE": _layer(
+            #     "OCS GE - Usage", "ign_wfs_url",
+            #     "OCSGE.USAGE.LATEST:usage_du_sol",
+            #     "#a78bfa", "polygon", "code_us", wfs_version="2.0.0",
+            #     heavy=True
+            # ),
             "CLC18": _layer(
                 "Corine Land Cover 2018", "ign_wfs_url",
-                "LANDCOVER.CLC18:clc18",
+                "LANDCOVER.CLC18_FR:clc18_fr",
                 "#c084fc", "polygon", "code_18", wfs_version="2.0.0",
                 columns_mapping={"code_18": "Code CLC", "label_fr": "Libellé"},
                 heavy=True
             ),
             "CLC12": _layer(
                 "Corine Land Cover 2012", "ign_wfs_url",
-                "LANDCOVER.CLC12:clc12",
+                "LANDCOVER.CLC12_FR:clc12_fr",
                 "#d8b4fe", "polygon", "code_12", wfs_version="2.0.0",
                 heavy=True
             ),
             "RPG": _layer(
                 "Registre Parcellaire Graphique", "ign_wfs_url",
-                "LANDUSE.AGRICULTURE.LATEST:parcelles_graphiques",
+                "RPG.LATEST:parcelles_graphiques",
                 "#84cc16", "polygon", "code_cultu", wfs_version="2.0.0",
                 columns_mapping={"code_cultu": "Culture"},
                 heavy=True

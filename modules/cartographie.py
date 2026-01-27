@@ -32,7 +32,6 @@ from modules.cartographie_core import (
     ExportOptions,
     RASTER_CONFIG,
     fetch_features,
-    generate_excel_for_layer,
     calculate_geometrics,
     get_local_slope_vector,
     get_elevation_ign_only,
@@ -338,6 +337,7 @@ def run_export_logic(
         os.makedirs(vecteurs_dir, exist_ok=True)
         os.makedirs(rapport_dir, exist_ok=True)
 
+        layers_data = {}
         for i, layer_key in enumerate(layers_list):
             config = LAYERS_CONFIG.get(layer_key)
             if not config:
@@ -349,13 +349,34 @@ def run_export_logic(
 
             try:
                 rows = fetch_features(layer_key, bbox, mode='export')
+                # Compatibilité: Convertir les objets GeoFeature en dicts plats pour maths.py et pandas
+                rows = [r.to_ui_dict() if hasattr(r, 'to_ui_dict') else r for r in rows]
+
+                # Optimization: Only calculate topography (Amont/Aval) for specific point layers
+                # This avoids hitting IGN API rate limits for massive polygon layers where it's less relevant
+                LAYERS_WITH_TOPO = ["BSS", "SSP", "SIS", "ICPE", "SUP", "QUALITO", "PIEZO"]
+                
+                # Use z_center only if layer needs it, otherwise None (skips IGN API)
+                effective_z = z_center if layer_key in LAYERS_WITH_TOPO else None
 
                 if rows and layer_key != "PARCELLE":
-                    rows = calculate_geometrics(rows, bbox, slope_azimut, z_center)
+                    rows = calculate_geometrics(rows, bbox, slope_azimut, effective_z)
 
-                # Excel export
-                fname = generate_excel_for_layer(rows, layer_key, rapport_dir, config)
-                
+                # Prepare Excel data (accumulate for single file)
+                from modules.cartographie_core.vector_export import prepare_layer_export_data
+                df_export = prepare_layer_export_data(rows, layer_key, config)
+                if df_export is not None:
+                    # Accumulate for unified export
+                    # Note: layers_data needs to be passed in or initialized before loop.
+                    # Since this function scope is complex, we'll initialize it if missing?
+                    # No, better refactor: we can't easily change function signature here without broader impact.
+                    # But we can assume layers_data dict exists in local scope if we init it before.
+                    # Let's check where to init. But wait, we are editing lines 356-435 which is INSIDE the loop.
+                    # We need to ensure `layers_data` variable is available. 
+                    # Actually, let's step back. We are viewing lines 340-450.
+                    # The loop starts at 341. We can't inject `layers_data = {}` before the loop with this ReplaceBlock easily unless we include the line before.
+                    pass
+
                 # GeoJSON export (always if rows exist, useful for QGIS even if QGIS opt is False)
                 geojson_path = None
                 if rows:
@@ -403,6 +424,10 @@ def run_export_logic(
                              generate_qml_line(qml_path, color='#0ea5e9', width=0.8,
                                                label_field='toponyme', label_size=8, buffer_size=1.0)
                              
+                        elif layer_key == 'ICPE' or layer_key == 'ETABLISSEMENTS_POLLUEURS':
+                             generate_qml_point(qml_path, color='#f97316', shape='square', size=3.0, outline_color='#000000',
+                                                label_field='nom_etablissement', label_size=8, buffer_size=1.0)
+
                         else:
                              # Default fallback based on config type
                              ltype = config.get('type', 'point')
@@ -420,12 +445,12 @@ def run_export_logic(
                         # Fallback if module structure differs
                         pass
                 
-                if fname:
-                    summary.append({
+                if df_export is not None:
+                     layers_data[layer_key] = df_export
+                     summary.append({
                         "status": "success", 
                         "layer": config['label'], 
                         "count": len(rows), 
-                        "filename": fname,
                         "geojson": geojson_path,
                         "type": "vector"
                     })
@@ -433,6 +458,13 @@ def run_export_logic(
             except Exception as e:
                 logging.error(f"Error exporting layer {layer_key}: {e}")
                 summary.append({"status": "error", "layer": config.get('label', layer_key), "error": str(e)})
+
+    # --- UNIFIED EXCEL EXPORT ---
+    if layers_data:
+        from modules.cartographie_core.vector_export import generate_unified_excel
+        excel_path = generate_unified_excel(layers_data, rapport_dir)
+        if excel_path:
+             logging.info(f"Unified Excel created: {excel_path}")
 
     # --- ÉTAPE 3 : EXPORT RASTERS (50-100%) si demandé ---
     raster_files_for_qgis = []
