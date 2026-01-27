@@ -97,6 +97,210 @@
         flex: 1;
     }
 
+    /* Layer Toolbar (Search + Profiles) */
+    .layer-toolbar {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 12px;
+        align-items: center;
+    }
+
+    .search-wrapper {
+        flex: 1;
+        position: relative;
+        transition: flex 0.3s ease;
+    }
+
+    .search-wrapper:focus-within {
+        flex: 3;
+    }
+
+    .search-wrapper svg {
+        position: absolute;
+        left: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 14px;
+        height: 14px;
+        color: var(--text-muted);
+        pointer-events: none;
+    }
+
+    .search-wrapper input {
+        width: 100%;
+        padding: 8px 10px 8px 32px;
+        background: rgba(30, 41, 59, 0.6);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 6px;
+        color: var(--text);
+        font-size: 12px;
+        transition: all 0.3s ease;
+    }
+
+    .search-wrapper input:focus {
+        outline: none;
+        border-color: var(--accent);
+        background: rgba(30, 41, 59, 0.9);
+    }
+
+    .profile-select {
+        padding: 8px 10px;
+        background: rgba(30, 41, 59, 0.6);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 6px;
+        color: var(--text);
+        font-size: 12px;
+        cursor: pointer;
+        min-width: 100px;
+        transition: all 0.3s ease;
+    }
+
+    .layer-toolbar:has(.search-wrapper:focus-within) .profile-select {
+        min-width: 60px;
+        max-width: 60px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .btn-save-profile {
+        padding: 8px;
+        background: rgba(34, 197, 94, 0.2);
+        border: 1px solid rgba(34, 197, 94, 0.4);
+        border-radius: 6px;
+        color: #22c55e;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .btn-save-profile:hover {
+        background: rgba(34, 197, 94, 0.4);
+    }
+
+    .count-badge {
+        font-size: 10px;
+        padding: 2px 6px;
+        background: var(--accent);
+        color: white;
+        border-radius: 10px;
+        margin-left: auto;
+    }
+
+    /* Accordion */
+    .layers-accordion {
+        max-height: 350px;
+        overflow-y: auto;
+        padding-right: 5px;
+    }
+
+    .category-item {
+        margin-bottom: 8px;
+        border-radius: 8px;
+        overflow: hidden;
+        background: rgba(30, 41, 59, 0.4);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .category-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 12px;
+        cursor: pointer;
+        transition: background 0.2s;
+        font-size: 12px;
+        font-weight: 600;
+    }
+
+    .category-header:hover {
+        background: rgba(56, 189, 248, 0.1);
+    }
+
+    .category-header .arrow {
+        width: 12px;
+        height: 12px;
+        transition: transform 0.2s;
+    }
+
+    .category-item.open .category-header .arrow {
+        transform: rotate(90deg);
+    }
+
+    .category-count {
+        font-size: 10px;
+        color: var(--text-muted);
+        margin-left: auto;
+    }
+
+    .category-content {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.3s ease-out;
+        background: rgba(15, 23, 42, 0.4);
+    }
+
+    .category-item.open .category-content {
+        max-height: 500px;
+    }
+
+    .category-layers {
+        padding: 6px 10px 10px 10px;
+    }
+
+    /* Layer items inside accordion */
+    .layer-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 8px;
+        border-radius: 4px;
+        transition: background 0.2s;
+        font-size: 12px;
+    }
+
+    .layer-item:hover {
+        background: rgba(30, 41, 59, 0.8);
+    }
+
+    .layer-item input[type="checkbox"] {
+        accent-color: var(--accent);
+        width: 14px;
+        height: 14px;
+        cursor: pointer;
+    }
+
+    .layer-item label {
+        cursor: pointer;
+        flex: 1;
+    }
+
+    .layer-item .heavy-badge {
+        font-size: 9px;
+        color: #fbbf24;
+        margin-left: 4px;
+    }
+
+    /* Bulk actions */
+    .bulk-actions {
+        display: flex;
+        gap: 8px;
+        padding: 4px 8px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .bulk-btn {
+        font-size: 10px;
+        padding: 2px 6px;
+        background: transparent;
+        border: none;
+        color: var(--accent);
+        cursor: pointer;
+    }
+
+    .bulk-btn:hover {
+        text-decoration: underline;
+    }
+
+    /* Legacy scroll (now replaced by accordion) */
     .layers-scroll {
         max-height: 200px;
         overflow-y: auto;
@@ -323,14 +527,34 @@
                 </div>
             </div>
 
-            <!-- SECTION 2: COUCHES VECTORIELLES -->
+            <!-- SECTION 2: COUCHES VECTORIELLES (REDESIGNED) -->
             <div class="carto-section">
                 <div class="carto-section-title">
-                    <i data-lucide="layers" style="width: 18px; height: 18px;"></i> <span>2. Données vectorielles</span>
+                    <i data-lucide="layers" style="width: 18px; height: 18px;"></i>
+                    <span>2. Données vectorielles</span>
+                    <span id="layer-count-badge" class="count-badge">0/0</span>
                 </div>
                 <div class="carto-card">
-                    <div class="layers-scroll" id="carto-layers-list">
-                        <!-- Layers will be injected here by JS -->
+                    <!-- Search + Profile Toolbar -->
+                    <div class="layer-toolbar">
+                        <div class="search-wrapper">
+                            <i data-lucide="search"></i>
+                            <input type="text" id="layer-search" placeholder="Rechercher une couche..."
+                                oninput="carto_filterLayers()">
+                        </div>
+                        <select id="profile-select" class="profile-select" onchange="carto_loadProfile()">
+                            <option value="">⚡ Profils</option>
+                            <!-- Populated by JS -->
+                        </select>
+                        <button class="btn-save-profile" onclick="carto_saveProfile()"
+                            title="Sauvegarder profil personnalisé">
+                            <i data-lucide="save" style="width: 14px; height: 14px;"></i>
+                        </button>
+                    </div>
+
+                    <!-- Accordion Categories Container -->
+                    <div id="carto-layers-accordion" class="layers-accordion">
+                        <!-- Categories will be injected here by JS -->
                     </div>
                 </div>
             </div>

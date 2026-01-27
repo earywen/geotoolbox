@@ -16,7 +16,7 @@ Modules:
 """
 
 # Vector exports (always available)
-from .models import LAYERS_CONFIG
+from .models import LAYERS_CONFIG, LAYER_CATEGORIES, PRESET_PROFILES
 from .config import ExportOptions, RASTER_CONFIG
 from .parsers import parse_gml_response, parse_wfs_response
 from .maths import get_elevation_ign_only, get_local_slope_vector, calculate_geometrics
@@ -37,6 +37,8 @@ except ImportError:
 __all__ = [
     # Config
     'LAYERS_CONFIG',
+    'LAYER_CATEGORIES',
+    'PRESET_PROFILES',
     'RASTER_CONFIG',
     'ExportOptions',
     # Vector

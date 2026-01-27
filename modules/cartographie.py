@@ -27,6 +27,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from modules import core
 from modules.cartographie_core import (
     LAYERS_CONFIG,
+    LAYER_CATEGORIES,
+    PRESET_PROFILES,
     ExportOptions,
     RASTER_CONFIG,
     fetch_features,
@@ -514,10 +516,28 @@ def run_export_logic(
 
 
 # ==========================================
-# 5. UI LOADER
+# 5. API FUNCTIONS FOR UI
 # ==========================================
+def get_carto_categories_config() -> Dict[str, Any]:
+    """
+    Returns the categorized layer configuration for the UI.
+    
+    Structure:
+    {
+        "categories": { category_key: { label, icon, description, layers: {...} } },
+        "profiles": { profile_key: { label, description, layers: [...] } },
+        "flatLayers": { layer_key: {...} }  // For backward compatibility
+    }
+    """
+    return {
+        "categories": LAYER_CATEGORIES,
+        "profiles": PRESET_PROFILES,
+        "flatLayers": LAYERS_CONFIG
+    }
+
+
 # ==========================================
-# 5. UI LOADER
+# 6. UI LOADER
 # ==========================================
 def get_ui_content() -> str:
     """Returns the HTML fragment for the Cartographie module."""
@@ -526,3 +546,4 @@ def get_ui_content() -> str:
         return html 
     except FileNotFoundError:
         return "<div class='placeholder'>Erreur: Template cartographie.html introuvable</div>"
+

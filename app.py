@@ -149,8 +149,12 @@ class BurgeaplyApi:
         return self.select_directory()
 
     def get_carto_config(self) -> Dict[str, Any]:
-        """Returns the configuration for cartography layers."""
+        """Returns the flat configuration for cartography layers (backward compat)."""
         return cartographie.LAYERS_CONFIG
+
+    def get_carto_categories(self) -> Dict[str, Any]:
+        """Returns the categorized layer configuration for the new UI."""
+        return cartographie.get_carto_categories_config()
 
     # --- FEEDBACK PROXIES ---
     def run_send_feedback(self, category: str, message: str, trigram: str, contact: str) -> bool:

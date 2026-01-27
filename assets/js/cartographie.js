@@ -118,61 +118,341 @@ class CartographieManager {
     }
 
     async loadLayers() {
-        const container = document.getElementById('carto-layers-list');
+        const container = document.getElementById('carto-layers-accordion');
+        const profileSelect = document.getElementById('profile-select');
         if (!container) return;
 
         // 1. Show Skeleton
         container.innerHTML = `
-            <div class="skeleton" style="height: 30px; margin-bottom: 8px;"></div>
-            <div class="skeleton" style="height: 30px; margin-bottom: 8px;"></div>
-            <div class="skeleton" style="height: 30px; margin-bottom: 8px;"></div>
-            <div class="skeleton" style="height: 30px; margin-bottom: 8px;"></div>
+            <div class="skeleton" style="height: 40px; margin-bottom: 8px;"></div>
+            <div class="skeleton" style="height: 40px; margin-bottom: 8px;"></div>
+            <div class="skeleton" style="height: 40px; margin-bottom: 8px;"></div>
         `;
 
         try {
-            // Simulate network delay for effect (can be removed)
-            await new Promise(r => setTimeout(r, 600));
+            await new Promise(r => setTimeout(r, 400));
 
-            const config = await window.pywebview.api.get_carto_config();
-            if (!config) throw new Error("Empty config");
+            // Call NEW categorized API
+            const data = await window.pywebview.api.get_carto_categories();
+            if (!data || !data.categories) throw new Error("Invalid config");
 
-            container.innerHTML = ''; // Clear skeleton
+            // Store for filtering/profiles
+            this.layerCategories = data.categories;
+            this.layerProfiles = data.profiles || {};
+            this.flatLayers = data.flatLayers || {};
 
-            Object.entries(config).forEach(([key, conf]) => {
-                const color = conf.color || "#cbd5e1";
-                const label = conf.label || key;
-                const checked = true; // Default to checked
+            container.innerHTML = '';
 
-                // Create Checkbox Wrapper
-                const div = document.createElement('div');
-                div.className = 'carto-checkbox-wrapper';
-                // Add fade-in animation
-                div.style.animation = "fadeIn 0.3s ease-out forwards";
-                div.innerHTML = `
-                    <input type="checkbox" id="chk_${key}" value="${key}" ${checked ? 'checked' : ''}>
-                    <label for="chk_${key}" style="color:${color}">${label}</label>
+            // 2. Render Categories as Accordions
+            Object.entries(data.categories).forEach(([catKey, category]) => {
+                const layers = category.layers || {};
+                const layerCount = Object.keys(layers).length;
+
+                const catDiv = document.createElement('div');
+                catDiv.className = 'category-item';
+                catDiv.id = `cat_${catKey}`;
+
+                catDiv.innerHTML = `
+                    <div class="category-header" onclick="window.Cartographie.toggleCategory('${catKey}')">
+                        <svg class="arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="9 18 15 12 9 6"></polyline>
+                        </svg>
+                        <span>${category.label || catKey}</span>
+                        <span class="category-count" id="count_${catKey}">0/${layerCount}</span>
+                    </div>
+                    <div class="category-content">
+                        <div class="bulk-actions">
+                            <button class="bulk-btn" onclick="window.Cartographie.selectAllInCategory('${catKey}', true)">Tout sélectionner</button>
+                            <button class="bulk-btn" onclick="window.Cartographie.selectAllInCategory('${catKey}', false)">Tout désélectionner</button>
+                        </div>
+                        <div class="category-layers" id="layers_${catKey}"></div>
+                    </div>
                 `;
 
-                // Event Listener for Toggling
-                const chk = div.querySelector('input');
-                chk.addEventListener('change', () => {
-                    if (this.currentPreviewData) {
-                        this.renderPreview(this.currentPreviewData);
-                    }
+                container.appendChild(catDiv);
+
+                // Render layers inside this category
+                const layersContainer = document.getElementById(`layers_${catKey}`);
+                Object.entries(layers).forEach(([layerKey, layer]) => {
+                    const isHeavy = layer.heavy === true;
+                    const layerDiv = document.createElement('div');
+                    layerDiv.className = 'layer-item';
+                    layerDiv.dataset.key = layerKey;
+                    layerDiv.dataset.label = (layer.label || layerKey).toLowerCase();
+
+                    layerDiv.innerHTML = `
+                        <input type="checkbox" id="chk_${layerKey}" value="${layerKey}">
+                        <label for="chk_${layerKey}" style="color:${layer.color || '#cbd5e1'}">${layer.label || layerKey}</label>
+                        ${isHeavy ? '<span class="heavy-badge" title="Couche volumineuse">⚠️</span>' : ''}
+                    `;
+
+                    // Event: checkbox change → auto-preview
+                    const chk = layerDiv.querySelector('input');
+                    chk.addEventListener('change', () => {
+                        this.updateCategoryCount(catKey);
+                        this.updateTotalCount();
+
+                        if (chk.checked) {
+                            this.autoPreviewLayer(layerKey);
+                        } else {
+                            this.removeLayerFromMap(layerKey);
+                        }
+                    });
+
+                    layersContainer.appendChild(layerDiv);
                 });
 
-                container.appendChild(div);
+                // Initial count
+                this.updateCategoryCount(catKey);
             });
-            console.log("[Cartographie] Layers loaded dynamically");
+
+            // 3. Populate Profiles Dropdown
+            if (profileSelect) {
+                profileSelect.innerHTML = '<option value="">⚡ Profils</option>';
+                Object.entries(data.profiles || {}).forEach(([key, profile]) => {
+                    const opt = document.createElement('option');
+                    opt.value = key;
+                    opt.textContent = profile.label || key;
+                    profileSelect.appendChild(opt);
+                });
+
+                // Load user custom profiles from localStorage
+                const customProfiles = JSON.parse(localStorage.getItem('carto_custom_profiles') || '{}');
+                if (Object.keys(customProfiles).length > 0) {
+                    const sep = document.createElement('option');
+                    sep.disabled = true;
+                    sep.textContent = '── Mes profils ──';
+                    profileSelect.appendChild(sep);
+
+                    Object.entries(customProfiles).forEach(([key, profile]) => {
+                        const opt = document.createElement('option');
+                        opt.value = `custom:${key}`;
+                        opt.textContent = profile.label || key;
+                        profileSelect.appendChild(opt);
+                    });
+                }
+            }
+
+            // 4. Total count
+            this.updateTotalCount();
+
+            if (window.lucide) window.lucide.createIcons();
+            console.log("[Cartographie] Layer categories loaded");
 
         } catch (e) {
-            console.error("[Cartographie] Failed to load layer config:", e);
+            console.error("[Cartographie] Failed to load categories:", e);
             container.innerHTML = `<div style="color: #ef4444; font-size:11px; padding: 10px; border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; background: rgba(239, 68, 68, 0.1);">
                 ⚠️ Erreur chargement couches<br>
                 <span style="opacity: 0.7; font-size: 9px;">${e.message || e}</span>
             </div>`;
-            if (window.showToast) window.showToast('error', "Impossible de charger les couches");
         }
+    }
+
+    toggleCategory(catKey) {
+        const catDiv = document.getElementById(`cat_${catKey}`);
+        if (catDiv) catDiv.classList.toggle('open');
+    }
+
+    selectAllInCategory(catKey, checked) {
+        const layersContainer = document.getElementById(`layers_${catKey}`);
+        if (!layersContainer) return;
+
+        const checkboxes = layersContainer.querySelectorAll('input[type="checkbox"]');
+
+        if (checked) {
+            // Check bbox first before checking all
+            const bbox = this.getPreviewBbox();
+            if (!bbox) {
+                if (window.showToast) {
+                    window.showToast('warning', 'Zoomez davantage ou dessinez une emprise pour voir les couches');
+                }
+                return;
+            }
+
+            // Load layers sequentially to avoid overload
+            checkboxes.forEach(chk => {
+                if (!chk.checked) {
+                    chk.checked = true;
+                    this.autoPreviewLayer(chk.value);
+                }
+            });
+        } else {
+            // Uncheck all and remove from map
+            checkboxes.forEach(chk => {
+                if (chk.checked) {
+                    chk.checked = false;
+                    this.removeLayerFromMap(chk.value);
+                }
+            });
+        }
+
+        this.updateCategoryCount(catKey);
+        this.updateTotalCount();
+    }
+
+    updateCategoryCount(catKey) {
+        const layersContainer = document.getElementById(`layers_${catKey}`);
+        const countEl = document.getElementById(`count_${catKey}`);
+        if (!layersContainer || !countEl) return;
+
+        const all = layersContainer.querySelectorAll('input[type="checkbox"]');
+        const checked = layersContainer.querySelectorAll('input[type="checkbox"]:checked');
+        countEl.textContent = `${checked.length}/${all.length}`;
+    }
+
+    updateTotalCount() {
+        const badge = document.getElementById('layer-count-badge');
+        if (!badge) return;
+        const allChecks = document.querySelectorAll('.layers-accordion input[type="checkbox"]');
+        const checkedChecks = document.querySelectorAll('.layers-accordion input[type="checkbox"]:checked');
+        badge.textContent = `${checkedChecks.length}/${allChecks.length}`;
+    }
+
+    // ==========================================
+    // AUTO-PREVIEW SYSTEM
+    // ==========================================
+
+    /**
+     * Calculate viewport area in km²
+     */
+    getViewportAreaKm2() {
+        if (!this.map) return Infinity;
+        const bounds = this.map.getBounds();
+        const latDiff = bounds.getNorth() - bounds.getSouth();
+        const lonDiff = bounds.getEast() - bounds.getWest();
+        const latKm = latDiff * 111;
+        const lonKm = lonDiff * 111 * Math.cos(bounds.getCenter().lat * Math.PI / 180);
+        return latKm * lonKm;
+    }
+
+    /**
+     * Get bbox for preview - uses emprise if available, or viewport if small enough
+     * Returns null if neither condition is met
+     */
+    getPreviewBbox() {
+        const MAX_VIEWPORT_KM2 = 100; // ~10km x 10km
+
+        // Priority 1: Use search circle (emprise-based) if defined
+        if (this.siteCircle) {
+            const cb = this.siteCircle.getBounds();
+            return {
+                min_lat: cb.getSouth(),
+                min_lon: cb.getWest(),
+                max_lat: cb.getNorth(),
+                max_lon: cb.getEast()
+            };
+        }
+
+        // Priority 2: Use viewport if small enough
+        const viewportArea = this.getViewportAreaKm2();
+        if (viewportArea <= MAX_VIEWPORT_KM2) {
+            const bounds = this.map.getBounds();
+            return {
+                min_lat: bounds.getSouth(),
+                min_lon: bounds.getWest(),
+                max_lat: bounds.getNorth(),
+                max_lon: bounds.getEast()
+            };
+        }
+
+        // Too large - return null
+        return null;
+    }
+
+    /**
+     * Auto-preview a single layer when checkbox is checked
+     */
+    async autoPreviewLayer(layerKey) {
+        const bbox = this.getPreviewBbox();
+
+        if (!bbox) {
+            // Uncheck the checkbox and show warning
+            const chk = document.getElementById(`chk_${layerKey}`);
+            if (chk) chk.checked = false;
+            this.updateTotalCount();
+            Object.keys(this.layerCategories || {}).forEach(cat => this.updateCategoryCount(cat));
+
+            if (window.showToast) {
+                window.showToast('warning', 'Zoomez davantage ou dessinez une emprise pour voir les couches');
+            }
+            return;
+        }
+
+        // Show loading state
+        this.addLog('info', `Chargement ${layerKey}...`);
+
+        try {
+            const result = await window.pywebview.api.run_carto_preview(bbox, [layerKey]);
+
+            if (result && result.length > 0) {
+                this.addLayerToMap(layerKey, result[0]);
+                this.addLog('success', `${layerKey}: ${result[0].items?.length || 0} éléments`);
+            } else {
+                this.addLog('info', `${layerKey}: aucun élément trouvé`);
+            }
+        } catch (err) {
+            console.error(`[AutoPreview] Error loading ${layerKey}:`, err);
+            this.addLog('error', `Erreur ${layerKey}: ${err.message || err}`);
+        }
+    }
+
+    /**
+     * Add a single layer's data to the map
+     */
+    addLayerToMap(layerKey, layerData) {
+        if (!this.map || !layerData?.items) return;
+
+        // Initialize layer storage if needed
+        if (!this.activeLayers) this.activeLayers = {};
+
+        // Remove existing layer if present
+        if (this.activeLayers[layerKey]) {
+            this.map.removeLayer(this.activeLayers[layerKey]);
+        }
+
+        // Create new layer group for this layer
+        const layerGroup = L.layerGroup();
+
+        layerData.items.forEach(item => {
+            if (!item.geometry) return;
+
+            L.geoJSON(item.geometry, {
+                pointToLayer: (f, latlng) => L.circleMarker(latlng, {
+                    radius: 6,
+                    fillColor: item.color,
+                    color: "#fff",
+                    weight: 1.5,
+                    fillOpacity: 0.9
+                }),
+                style: { color: item.color, weight: 2, opacity: 0.8 },
+                onEachFeature: (feature, layer) => {
+                    const popup = `<div style="font-size:12px"><b>${layerData.layer}</b><br>${item.nom}${item.details ? '<br><i>' + item.details + '</i>' : ''}</div>`;
+                    const tooltip = `<div style="font-weight:600; font-size:11px; color:${item.color}">${item.nom}</div>`;
+
+                    layer.bindPopup(popup);
+                    layer.bindTooltip(tooltip, {
+                        direction: 'top',
+                        sticky: true,
+                        className: 'carto-tooltip',
+                        opacity: 0.95
+                    });
+                }
+            }).addTo(layerGroup);
+        });
+
+        layerGroup.addTo(this.map);
+        this.activeLayers[layerKey] = layerGroup;
+    }
+
+    /**
+     * Remove a layer from the map when unchecked
+     */
+    removeLayerFromMap(layerKey) {
+        if (!this.activeLayers || !this.activeLayers[layerKey]) return;
+
+        this.map.removeLayer(this.activeLayers[layerKey]);
+        delete this.activeLayers[layerKey];
+        this.addLog('info', `${layerKey} masqué`);
     }
 
     initDrawControls() {
@@ -502,7 +782,7 @@ class CartographieManager {
     }
 
     getSelectedLayers() {
-        const inputs = document.querySelectorAll('#carto-layers-list input:checked');
+        const inputs = document.querySelectorAll('.layers-accordion input:checked');
         return Array.from(inputs).map(i => i.value);
     }
 
@@ -742,4 +1022,73 @@ window.carto_runExport = () => window.Cartographie.runExport();
 window.carto_browseFolder = () => window.Cartographie.browseFolder();
 window.carto_clearEmprise = () => window.Cartographie.clearSite();
 
-console.log("[Cartographie] Module loaded (Refactored)");
+// New layer UI bindings
+window.carto_filterLayers = () => {
+    const query = document.getElementById('layer-search')?.value.toLowerCase().trim() || '';
+    const items = document.querySelectorAll('.layers-accordion .layer-item');
+
+    items.forEach(item => {
+        const label = item.dataset.label || '';
+        const key = item.dataset.key || '';
+        const match = query === '' || label.includes(query) || key.toLowerCase().includes(query);
+        item.style.display = match ? '' : 'none';
+    });
+
+    // Show categories that have visible items
+    document.querySelectorAll('.category-item').forEach(cat => {
+        const visibleItems = cat.querySelectorAll('.layer-item[style=""], .layer-item:not([style])');
+        const hasVisible = visibleItems.length > 0 || query === '';
+        cat.style.display = hasVisible ? '' : 'none';
+        if (query && hasVisible) cat.classList.add('open'); // Auto-expand when searching
+    });
+};
+
+window.carto_loadProfile = () => {
+    const select = document.getElementById('profile-select');
+    if (!select || !select.value) return;
+
+    const carto = window.Cartographie;
+    let layers = [];
+
+    if (select.value.startsWith('custom:')) {
+        // Custom profile from localStorage
+        const key = select.value.replace('custom:', '');
+        const customProfiles = JSON.parse(localStorage.getItem('carto_custom_profiles') || '{}');
+        layers = customProfiles[key]?.layers || [];
+    } else {
+        // Built-in profile
+        layers = carto.layerProfiles?.[select.value]?.layers || [];
+    }
+
+    // Uncheck all, then check only profile layers
+    document.querySelectorAll('.layers-accordion input[type="checkbox"]').forEach(chk => {
+        chk.checked = layers.includes(chk.value);
+    });
+
+    // Update all category counts
+    Object.keys(carto.layerCategories || {}).forEach(catKey => {
+        carto.updateCategoryCount(catKey);
+    });
+    carto.updateTotalCount();
+
+    if (window.showToast) window.showToast('info', `Profil "${select.options[select.selectedIndex].text}" chargé`);
+};
+
+window.carto_saveProfile = () => {
+    const name = prompt("Nom du profil personnalisé:");
+    if (!name || !name.trim()) return;
+
+    const key = name.trim().toLowerCase().replace(/\s+/g, '_');
+    const selected = window.Cartographie.getSelectedLayers();
+
+    const customProfiles = JSON.parse(localStorage.getItem('carto_custom_profiles') || '{}');
+    customProfiles[key] = { label: name.trim(), layers: selected };
+    localStorage.setItem('carto_custom_profiles', JSON.stringify(customProfiles));
+
+    // Refresh profile list
+    window.Cartographie.loadLayers();
+
+    if (window.showToast) window.showToast('success', `Profil "${name}" sauvegardé`);
+};
+
+console.log("[Cartographie] Module loaded (Redesigned v2)");

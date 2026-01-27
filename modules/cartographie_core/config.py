@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 from typing import List, Optional
 
 # Re-export layer configurations
-from .models import LAYERS_CONFIG
+from .models import LAYERS_CONFIG, LAYER_CATEGORIES, PRESET_PROFILES
 
 
 @dataclass

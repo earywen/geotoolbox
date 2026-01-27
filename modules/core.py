@@ -73,10 +73,12 @@ def init():
         "app": {"log_level": "INFO", "log_file": "burgeaply.log", "debug": False},
         "geotoolbox": {
             "georisques_url": "https://georisques.gouv.fr/services",
+            "brgm_georisques_url": "https://mapsref.brgm.fr/wxs/georisques/risques",
             "brgm_wfs_url": "https://geoservices.brgm.fr/geologie",
+            "brgm_ades_url": "http://mapsref.brgm.fr/wxs/ades/public",
             "ign_wfs_url": "https://data.geopf.fr/wfs/ows",
             "infoterre_url": "http://infoterre.brgm.fr/fiche/",
-            "inpn_wfs_url": "https://inpn.mnhn.fr/inspire/services/wfs", # Proxy/Alias often needed
+            "inpn_wfs_url": "https://inpn.mnhn.fr/inspire/services/wfs",
             "carmen_wfs_url": "https://ws.carmencarto.fr/WFS/119/fxx_inpn"
         },
         "orthohisto": {
