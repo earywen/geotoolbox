@@ -395,49 +395,34 @@ def run_export_logic(
                             generate_qml_line
                         )
                         
-                        if layer_key == 'SSP':
-                             # SSP: Triangle Rouge, contour noir + Label 'code_metier'
-                             generate_qml_point(qml_path, color='#ef4444', shape='triangle', size=3.6, outline_color='#000000',
-                                                label_field='code_metier', label_size=8, buffer_size=1.0)
-                             
-                        elif layer_key == 'BSS':
-                             # BSS: Cercle Bleu, contour noir + Label 'code_bss'
-                             generate_qml_point(qml_path, color='#3b82f6', shape='circle', size=3.0, outline_color='#000000',
-                                                label_field='code_bss', label_size=8, buffer_size=1.0)
-                             
-                        elif layer_key == 'SIS':
-                             # SIS: Polygone Orange + Label 'nom_etablissement'
-                             generate_qml_polygon(qml_path, color='#fb923c', outline_color='#000000', outline_width=0.4, opacity=0.6,
-                                                  label_field='nom_etablissement', label_size=8, buffer_size=1.0)
-                             
-                        elif layer_key == 'SUP':
-                             # SUP: Polygone Violet + Label 'nom_etablissement'
-                             generate_qml_polygon(qml_path, color='#d946ef', outline_color='#000000', outline_width=0.4, opacity=0.6,
-                                                  label_field='nom_etablissement', label_size=8, buffer_size=1.0)
-                             
-                        elif layer_key == 'PARCELLE':
-                             # Parcelles: Fond orange très transparent
-                             generate_qml_polygon(qml_path, color='#fdba74', outline_color='#f59e0b', outline_width=0.3, opacity=0.1)
-                             
-                        elif layer_key == 'EAU':
-                             # Cours d'eau: Ligne bleu clair + Label 'toponyme'
-                             generate_qml_line(qml_path, color='#0ea5e9', width=0.8,
-                                               label_field='toponyme', label_size=8, buffer_size=1.0)
-                             
-                        elif layer_key == 'ICPE' or layer_key == 'ETABLISSEMENTS_POLLUEURS':
-                             generate_qml_point(qml_path, color='#f97316', shape='square', size=3.0, outline_color='#000000',
-                                                label_field='nom_etablissement', label_size=8, buffer_size=1.0)
-
+                        # Dynamic Style Loading
+                        from modules.cartographie_core.config import load_styles
+                        styles_cache = load_styles()
+                        
+                        defaults = styles_cache.get('default', {})
+                        layer_styles = styles_cache.get('layers', {})
+                        spec_style = layer_styles.get(layer_key, {})
+                        
+                        # Determine type: Config Style > Layer Config > Default Point
+                        ltype = spec_style.get('type') or config.get('type', 'point')
+                        
+                        # Merge: Default(Type) + Specific
+                        final_style = defaults.get(ltype, {}).copy()
+                        final_style.update(spec_style)
+                        
+                        # Clean arguments (remove 'type' if present)
+                        final_style.pop('type', None)
+                        
+                        # Generate based on type
+                        if ltype == 'point':
+                            generate_qml_point(qml_path, **final_style)
+                        elif ltype == 'polygon':
+                            generate_qml_polygon(qml_path, **final_style)
+                        elif ltype == 'line':
+                            generate_qml_line(qml_path, **final_style)
                         else:
-                             # Default fallback based on config type
-                             ltype = config.get('type', 'point')
-                             lcolor = config.get('color', '#888888')
-                             if ltype == 'point':
-                                 generate_qml_point(qml_path, lcolor)
-                             elif ltype == 'polygon':
-                                 generate_qml_polygon(qml_path, lcolor)
-                             else:
-                                 generate_qml_line(qml_path, lcolor)
+                            # Safe fallback
+                            generate_qml_point(qml_path, color='#888888')
 
                         
                         vector_files_for_qgis.append(geojson_path)
@@ -456,7 +441,7 @@ def run_export_logic(
                     })
                         
             except Exception as e:
-                logging.error(f"Error exporting layer {layer_key}: {e}")
+                logging.exception(f"Error exporting layer {layer_key}: {e}")
                 summary.append({"status": "error", "layer": config.get('label', layer_key), "error": str(e)})
 
     # --- UNIFIED EXCEL EXPORT ---
@@ -510,7 +495,7 @@ def run_export_logic(
                     if os.path.exists(res.get('filename', '')):
                         raster_files_for_qgis.append(res['filename'])
         except Exception as e:
-             logging.error(f"PVA Error: {e}")
+             logging.exception(f"PVA Error: {e}")
         
         # Download mosaics (90-100%)
         reporter.update(90, "Téléchargement mosaïques géoréférencées...")

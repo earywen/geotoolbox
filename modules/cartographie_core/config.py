@@ -5,7 +5,10 @@ Unified configuration for vector and raster data sources.
 """
 
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
+import os
+import yaml
+import logging
 
 # Re-export layer configurations
 from .models import LAYERS_CONFIG, LAYER_CATEGORIES, PRESET_PROFILES
@@ -35,3 +38,19 @@ RASTER_CONFIG = {
         "enabled": True
     }
 }
+
+def load_styles() -> Dict[str, Any]:
+    """Loads export styles from styles.yaml."""
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    style_path = os.path.join(base_dir, "styles.yaml")
+    
+    if not os.path.exists(style_path):
+        logging.warning(f"Sortie styles.yaml introuvable: {style_path}")
+        return {}
+        
+    try:
+        with open(style_path, 'r', encoding='utf-8') as f:
+            return yaml.safe_load(f) or {}
+    except Exception as e:
+        logging.error(f"Erreur lecture styles.yaml: {e}")
+        return {}

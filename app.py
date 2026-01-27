@@ -38,6 +38,21 @@ class BurgeaplyApi:
     Handles UI requests and dispatches them to appropriate modules.
     """
 
+    def _validate_path(self, path: str, check_exists: bool = True) -> Optional[str]:
+        """Validates and normalizes a file path for security."""
+        if not path or not isinstance(path, str):
+            return None
+        
+        # Normalize path
+        norm_path = os.path.normpath(os.path.abspath(path))
+        
+        # Check existence if required
+        if check_exists and not os.path.exists(norm_path):
+            logging.warning(f"Security: Path access denied or missing: {norm_path}")
+            return None
+            
+        return norm_path
+
     def get_initial_content(self) -> Dict[str, str]:
         """
         Returns the HTML content for the dynamic parts of the UI.
@@ -111,8 +126,9 @@ class BurgeaplyApi:
     def open_file(self, file_path: str) -> bool:
         """Opens a file with the default system application."""
         try:
-            if os.path.exists(file_path):
-                os.startfile(file_path)
+            safe_path = self._validate_path(file_path, check_exists=True)
+            if safe_path:
+                os.startfile(safe_path)
                 return True
             return False
         except Exception as e:
@@ -122,10 +138,11 @@ class BurgeaplyApi:
     def open_folder(self, file_path: str) -> bool:
         """Opens the folder containing the file and selects it."""
         try:
-            if os.path.exists(file_path):
+            safe_path = self._validate_path(file_path, check_exists=True)
+            if safe_path:
                 # Windows: explorer /select,<path>
                 import subprocess
-                subprocess.run(['explorer', '/select,', file_path])
+                subprocess.run(['explorer', '/select,', safe_path])
                 return True
             return False
         except Exception as e:
@@ -141,7 +158,11 @@ class BurgeaplyApi:
                          options: Dict[str, Any] = None, emprise: Dict[str, Any] = None, 
                          radius_geojson: Dict[str, Any] = None) -> Dict[str, Any]:
         """Proxy for Cartographie unified export (vectors + rasters)."""
-        return cartographie.run_export_logic(bbox, layers, folder, path, options, 
+        safe_folder = self._validate_path(folder, check_exists=True)
+        if not safe_folder:
+            return {"success": False, "error": "Invalid output folder."}
+            
+        return cartographie.run_export_logic(bbox, layers, safe_folder, path, options, 
                                            emprise_geojson=emprise, radius_geojson=radius_geojson)
 
     def browse_folder(self) -> Optional[str]:
