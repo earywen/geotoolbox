@@ -28,7 +28,7 @@
         display: flex;
         flex-direction: column;
         overflow: hidden;
-        border-radius: 20px;
+        border-radius: var(--radius-lg);
     }
 
     #carto-scroll-area {
@@ -57,7 +57,7 @@
     .carto-card {
         background: rgba(15, 23, 42, 0.6);
         border: 1px solid rgba(255, 255, 255, 0.08);
-        border-radius: 12px;
+        border-radius: var(--radius-md);
         padding: 15px;
         transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
     }
@@ -75,7 +75,7 @@
         margin-bottom: 8px;
         padding: 8px 12px;
         background: rgba(30, 41, 59, 0.4);
-        border-radius: 8px;
+        border-radius: var(--radius-sm);
         transition: background 0.2s;
     }
 
@@ -88,6 +88,7 @@
         width: 16px;
         height: 16px;
         cursor: pointer;
+        border-radius: 4px;
     }
 
     .carto-checkbox-wrapper label {
@@ -131,7 +132,7 @@
         padding: 8px 10px 8px 32px;
         background: rgba(30, 41, 59, 0.6);
         border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 6px;
+        border-radius: var(--radius-sm);
         color: var(--text);
         font-size: 12px;
         transition: all 0.3s ease;
@@ -147,7 +148,7 @@
         padding: 8px 10px;
         background: rgba(30, 41, 59, 0.6);
         border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 6px;
+        border-radius: var(--radius-sm);
         color: var(--text);
         font-size: 12px;
         cursor: pointer;
@@ -372,7 +373,7 @@
     }
 
     .log-info {
-        color: #38bdf8;
+        color: var(--accent);
     }
 
     /* Mode Toggle Buttons */
@@ -437,7 +438,7 @@
         background: rgba(239, 68, 68, 0.2);
         border: 1px solid rgba(239, 68, 68, 0.4);
         color: #ef4444;
-        border-radius: 4px;
+        border-radius: var(--radius-sm);
         cursor: pointer;
     }
 
@@ -476,6 +477,105 @@
     .leaflet-draw-toolbar a {
         filter: none !important;
     }
+
+    /* --- MAP LEGEND --- */
+    .carto-legend {
+        padding: 10px 12px;
+        background: var(--glass-bg);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid var(--glass-border);
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        border-radius: var(--radius-md);
+        min-width: 150px;
+        color: var(--text-main);
+        font-size: 11px;
+        line-height: 1.4;
+    }
+
+    .carto-legend h4 {
+        margin: 0 0 8px;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        letter-spacing: 0.5px;
+    }
+
+    .carto-legend-item {
+        display: flex;
+        align-items: center;
+        margin-bottom: 4px;
+        gap: 8px;
+    }
+
+    .carto-legend-item:last-child {
+        margin-bottom: 0;
+    }
+
+    .carto-legend-color {
+        width: 12px;
+        height: 12px;
+        border-radius: 3px;
+        flex-shrink: 0;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    /* --- DARK MODE LEAFLET OVERRIDES --- */
+    .dark-mode-leaf .leaflet-control-zoom a {
+        background-color: var(--bg-panel) !important;
+        border-color: var(--glass-border) !important;
+        color: white !important;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5) !important;
+    }
+
+    .dark-mode-leaf .leaflet-control-zoom a:hover {
+        background-color: var(--accent) !important;
+        border-color: var(--accent) !important;
+    }
+
+    .dark-mode-leaf .leaflet-control-layers {
+        background: var(--glass-bg) !important;
+        backdrop-filter: blur(12px) !important;
+        color: var(--text-main) !important;
+        border: 1px solid var(--glass-border) !important;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3) !important;
+    }
+
+    /* DARK MODE DRAW CONTROLS (INVERSE MATH) */
+    /* 
+       Logic: Leaflet Draw uses background-image sprites (black icons).
+       To get White icons, we MUST use filter: invert(1).
+       But invert(1) also inverts the background color.
+       So we set the background to the INVERSE of our desired color.
+       
+       Target: var(--bg-panel) = #1e293b
+       Inverse: #e1d6c4
+       
+       Target: var(--accent) = #38bdf8
+       Inverse: #c74207
+    */
+    .dark-mode-leaf .leaflet-draw-toolbar a {
+        background-color: #e1d6c4 !important;
+        border-color: #d4d4d4 !important;
+        filter: invert(1) hue-rotate(180deg) !important;
+    }
+
+    .dark-mode-leaf .leaflet-draw-toolbar a:hover {
+        background-color: #c74207 !important;
+        border-color: #c74207 !important;
+    }
+
+    /* Specific fix for the Delete button (Red) in Dark Mode */
+    /* Target Red: #ef4444. Inverse: #10bbbb */
+    .dark-mode-leaf .leaflet-draw-edit-remove {
+        color: #10bbbb !important;
+    }
+
+    .dark-mode-leaf .leaflet-draw-edit-remove:hover {
+        background-color: #010d0d !important;
+        /* Inverse of #fef2f2 */
+    }
 </style>
 
 <div id="cartographie-container">
@@ -511,18 +611,28 @@
                     <!-- Radius Container -->
                     <div id="radiusContainer">
                         <div class="carto-radius-label">
-                            <label>Rayon de recherche (autour du centre)</label>
+                            <label for="cartoRadius">Rayon de recherche (autour du centre)</label>
                             <span id="cartoRadiusDisplay" class="text-accent">500 m</span>
                         </div>
                         <input type="range" id="cartoRadius" min="100" max="5000" step="100" value="500"
-                            class="carto-radius-slider" oninput="carto_updateRadius()">
+                            class="carto-radius-slider" oninput="carto_updateRadius()"
+                            aria-describedby="cartoRadiusDisplay">
                     </div>
 
                     <!-- Emprise Info (shown when polygon is drawn) -->
                     <div id="empriseInfo" class="emprise-info">
-                        <strong>📐 Emprise définie</strong>
+                        <strong>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                                style="display: inline-block; vertical-align: middle; margin-right: 4px;">
+                                <path
+                                    d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                            </svg>
+                            Emprise définie
+                        </strong>
                         <div id="empriseDetails" class="emprise-details">-</div>
-                        <button class="btn-mini" onclick="carto_clearEmprise()">✕ Effacer tout</button>
+                        <button class="btn-mini" onclick="carto_clearEmprise()" aria-label="Effacer l'emprise">✕ Effacer
+                            tout</button>
                     </div>
                 </div>
             </div>
@@ -583,8 +693,9 @@
                 </div>
 
                 <div class="input-group" style="margin-bottom: 15px;">
+                    <label for="cartoTargetPath" class="sr-only">Dossier de destination</label>
                     <input type="text" id="cartoTargetPath" class="input-pill" readonly placeholder="Dossier cible...">
-                    <button class="btn-icon-input" onclick="carto_browseFolder()">
+                    <button class="btn-icon-input" onclick="carto_browseFolder()" aria-label="Parcourir les dossiers">
                         <i data-lucide="folder-open" style="width: 14px; height: 14px;"></i>
                     </button>
                 </div>

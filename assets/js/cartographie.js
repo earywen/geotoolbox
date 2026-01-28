@@ -23,6 +23,8 @@ class CartographieManager {
 
         this.selectedLat = 0;
         this.selectedLon = 0;
+
+        this.legendControl = null; // Legend control instance
     }
 
     init() {
@@ -50,6 +52,10 @@ class CartographieManager {
             attribution: '&copy; CARTO',
             maxZoom: 20
         });
+        const darkLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; CARTO',
+            maxZoom: 20
+        });
         const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         });
@@ -69,7 +75,9 @@ class CartographieManager {
 
         // Layer Control
         const baseMaps = {
-            "Plan (OSM)": osmLayer,
+            "Plan Classique (OSM)": osmLayer,
+            "Mode Clair (Light)": lightLayer,
+            "Mode Sombre (Dark)": darkLayer,
             "Satellite (Google)": googleSatLayer
         };
 
@@ -85,6 +93,16 @@ class CartographieManager {
 
         // Default View
         osmLayer.addTo(this.map);
+
+        // Base Layer Change Listener (Dark Mode)
+        this.map.on('baselayerchange', (e) => {
+            const container = document.getElementById('cartographie-container');
+            if (e.name === "Mode Sombre (Dark)") {
+                container.classList.add('dark-mode-leaf');
+            } else {
+                container.classList.remove('dark-mode-leaf');
+            }
+        });
 
         L.control.zoom({ position: 'topright' }).addTo(this.map);
 
@@ -110,6 +128,9 @@ class CartographieManager {
         // Init Slider Background
         const radInput = document.getElementById('cartoRadius');
         if (radInput) this.updateSliderBackground(radInput);
+
+        // Init Legend
+        this.initLegend();
 
         // Init Icons
         if (window.lucide) window.lucide.createIcons();
@@ -442,6 +463,8 @@ class CartographieManager {
 
         layerGroup.addTo(this.map);
         this.activeLayers[layerKey] = layerGroup;
+
+        this.updateLegend(); // Update legend
     }
 
     /**
@@ -453,6 +476,8 @@ class CartographieManager {
         this.map.removeLayer(this.activeLayers[layerKey]);
         delete this.activeLayers[layerKey];
         this.addLog('info', `${layerKey} masqué`);
+
+        this.updateLegend(); // Update legend
     }
 
     initDrawControls() {
@@ -796,6 +821,64 @@ class CartographieManager {
 
             include_emprise: true // Always include site boundary
         };
+    }
+
+    // ==========================================
+    // LEGEND MANAGEMENT
+    // ==========================================
+
+    initLegend() {
+        if (!this.map) return;
+
+        // Create custom control
+        const LegendControl = L.Control.extend({
+            options: {
+                position: 'bottomright'
+            },
+            onAdd: function (map) {
+                const div = L.DomUtil.create('div', 'carto-legend');
+                div.style.display = 'none'; // Hidden initially
+                return div;
+            }
+        });
+
+        this.legendControl = new LegendControl();
+        this.map.addControl(this.legendControl);
+    }
+
+    updateLegend() {
+        if (!this.legendControl) return;
+
+        const container = this.legendControl.getContainer();
+        const activeKeys = Object.keys(this.activeLayers || {});
+
+        if (activeKeys.length === 0) {
+            container.style.display = 'none';
+            return;
+        }
+
+        let html = '<h4>Légende</h4>';
+
+        activeKeys.forEach(key => {
+            // Try to find config in flatLayers, or fallback
+            let label = key;
+            let color = '#ccc';
+
+            if (this.flatLayers && this.flatLayers[key]) {
+                label = this.flatLayers[key].label || key;
+                color = this.flatLayers[key].color || '#ccc';
+            }
+
+            html += `
+                <div class="carto-legend-item">
+                    <div class="carto-legend-color" style="background: ${color}"></div>
+                    <span>${label}</span>
+                </div>
+            `;
+        });
+
+        container.innerHTML = html;
+        container.style.display = 'block';
     }
 
     // Logging

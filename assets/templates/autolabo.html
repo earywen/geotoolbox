@@ -186,10 +186,12 @@
         <!-- SECTION 1: LABORATOIRE -->
         <div class="card" style="margin-bottom: 20px;">
             <div class="section-title" style="margin-top: 0;">1. LABORATOIRE</div>
-            <select id="provider-select" class="input-pill" style="width: 100%; padding: 12px 15px; height: auto;">
-                <option value="auto">🔍 Auto-Détection</option>
-                <option value="agrolab">🧪 AGROLAB France</option>
-                <option value="eurofins">🔬 EUROFINS</option>
+            <select id="provider-select" class="input-pill" style="width: 100%; padding: 12px 15px; height: auto;"
+                aria-label="Sélectionner le laboratoire">
+                <option value="auto">[Auto] Auto-Détection</option>
+                <option value="agrolab">[Agrolab] AGROLAB France</option>
+                <option value="eurofins">[Eurofins] EUROFINS</option>
+                <option value="carso">[Carso] CARSO</option>
             </select>
         </div>
 
@@ -219,8 +221,9 @@
         <div class="card" style="margin-bottom: 20px;">
             <div class="section-title" style="margin-top: 0;">4. DESTINATION</div>
             <div class="input-group">
+                <label for="autolabo-target-path" class="sr-only">Dossier de destination</label>
                 <input type="text" id="autolabo-target-path" class="input-pill" readonly placeholder="Dossier cible...">
-                <button class="btn-icon-input" onclick="autoLaboBrowseFolder()">
+                <button class="btn-icon-input" onclick="autoLaboBrowseFolder()" aria-label="Parcourir les dossiers">
                     <i data-lucide="folder-open" style="width: 14px; height: 14px;"></i>
                 </button>
             </div>

@@ -51,7 +51,13 @@
         </div>
 
         <div style="text-align:center; margin-bottom:30px;">
-            <div style="margin-bottom: 15px; font-size:40px;">📢</div>
+            <div style="margin-bottom: 15px; color: var(--accent);">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <path d="m3 11 18-5v12L3 14v-3z" />
+                    <path d="M11.6 16.8a3 3 0 1 1-5.8-1.6" />
+                </svg>
+            </div>
             <h2 style="margin:0; font-size:24px;">Feedback</h2>
             <p class="text-muted" style="font-size:14px; margin-top:5px;">
                 Une idée ? Un bug ? Envoyez-le directement sur Discord.
@@ -61,22 +67,22 @@
         <div class="modern-form">
             <div style="display: flex; gap: 15px;">
                 <div class="form-group" style="flex: 1;">
-                    <label>Trigramme</label>
+                    <label for="fb_trigram">Trigramme</label>
                     <input type="text" id="fb_trigram" class="input-pill" placeholder="XXX" maxlength="5"
                         style="text-transform:uppercase; text-align:center;">
                 </div>
                 <div class="form-group" style="flex: 2;">
-                    <label>Sujet</label>
+                    <label for="fb_category">Sujet</label>
                     <select id="fb_category" class="input-pill">
-                        <option value="idea">💡 Suggestion</option>
-                        <option value="bug">🪲 Bug</option>
-                        <option value="other">✉️ Autre</option>
+                        <option value="idea">[Idée] Suggestion</option>
+                        <option value="bug">[Bug] Signaler un bug</option>
+                        <option value="other">[Autre] Message</option>
                     </select>
                 </div>
             </div>
 
             <div class="form-group">
-                <label>Message</label>
+                <label for="fb_message">Message</label>
                 <textarea id="fb_message" class="input-pill" placeholder="Décrivez votre idée..."></textarea>
             </div>
 
