@@ -30,6 +30,35 @@ class CartographieManager {
     init() {
         console.log("[Cartographie] Init called");
 
+        // Helper to create SVG for shapes
+        this.createShapeMarker = (latlng, color, shape) => {
+            const size = 14;
+            // Shape definitions
+            const shapes = {
+                square: `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="${color}" stroke="white" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" /></svg>`,
+                triangle: `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="${color}" stroke="white" stroke-width="2"><path d="M12 2L22 22H2L12 2Z" stroke-linejoin="round" /></svg>`,
+                diamond: `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="${color}" stroke="white" stroke-width="2"><path d="M12 2L22 12L12 22L2 12Z" stroke-linejoin="round" /></svg>`,
+                hexagon: `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="${color}" stroke="white" stroke-width="2"><path d="M12 2L21 7V17L12 22L3 17V7L12 2Z" stroke-linejoin="round" /></svg>`,
+                pentagon: `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="${color}" stroke="white" stroke-width="2"><path d="M12 2L22 9L18 21H6L2 9L12 2Z" stroke-linejoin="round" /></svg>`,
+                star: `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="${color}" stroke="white" stroke-width="2"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" stroke-linejoin="round" /></svg>`
+            };
+
+            // Default to circle (handled by caller usually, but if here, use DivIcon)
+            // But standard circleMarker is better for performance. 
+            // If shape is circle, we shouldn't be here ideally, but let's handle it logic wise in addLayerToMap.
+
+            const html = shapes[shape] || shapes.square;
+
+            return L.marker(latlng, {
+                icon: L.divIcon({
+                    className: 'carto-custom-marker',
+                    html: html,
+                    iconSize: [size, size],
+                    iconAnchor: [size / 2, size / 2]
+                })
+            });
+        };
+
         if (this.map) {
             setTimeout(() => this.map.invalidateSize(), 100);
             return;
@@ -438,13 +467,23 @@ class CartographieManager {
             if (!item.geometry) return;
 
             L.geoJSON(item.geometry, {
-                pointToLayer: (f, latlng) => L.circleMarker(latlng, {
-                    radius: 6,
-                    fillColor: item.color,
-                    color: "#fff",
-                    weight: 1.5,
-                    fillOpacity: 0.9
-                }),
+                pointToLayer: (f, latlng) => {
+                    // Check layer config for shape
+                    const layerConfig = this.flatLayers?.[layerKey];
+                    const shape = layerConfig?.shape || 'circle';
+
+                    if (shape === 'circle') {
+                        return L.circleMarker(latlng, {
+                            radius: 6,
+                            fillColor: item.color,
+                            color: "#fff",
+                            weight: 1.5,
+                            fillOpacity: 0.9
+                        });
+                    } else {
+                        return this.createShapeMarker(latlng, item.color, shape);
+                    }
+                },
                 style: { color: item.color, weight: 2, opacity: 0.8 },
                 onEachFeature: (feature, layer) => {
                     const popup = `<div style="font-size:12px"><b>${layerData.layer}</b><br>${item.nom}${item.details ? '<br><i>' + item.details + '</i>' : ''}</div>`;
@@ -869,9 +908,54 @@ class CartographieManager {
                 color = this.flatLayers[key].color || '#ccc';
             }
 
+            // Determine shape for legend
+            const shape = (this.flatLayers && this.flatLayers[key] && this.flatLayers[key].shape) || 'circle';
+
+            let iconHtml = '';
+            const size = 12; // Legend icon size
+
+            if (shape === 'circle') {
+                iconHtml = `<div class="carto-legend-color" style="background: ${color}; border-radius: 50%;"></div>`;
+            } else if (shape === 'square') {
+                iconHtml = `<div class="carto-legend-color" style="background: ${color}; border-radius: 2px;"></div>`;
+            } else if (shape === 'triangle') {
+                // CSS Triangle or SVG
+                iconHtml = `
+                    <svg width="${size}" height="${size}" viewBox="0 0 24 24" style="overflow: visible">
+                        <path d="M12 2L22 22H2L12 2Z" fill="${color}" stroke="white" stroke-width="2" stroke-linejoin="round"/>
+                    </svg>
+                `;
+            } else if (shape === 'diamond') {
+                iconHtml = `
+                    <svg width="${size}" height="${size}" viewBox="0 0 24 24" style="overflow: visible">
+                        <path d="M12 2L22 12L12 22L2 12Z" fill="${color}" stroke="white" stroke-width="2" stroke-linejoin="round"/>
+                    </svg>
+                `;
+            } else if (shape === 'hexagon') {
+                iconHtml = `
+                    <svg width="${size}" height="${size}" viewBox="0 0 24 24" style="overflow: visible">
+                        <path d="M12 2L21 7V17L12 22L3 17V7L12 2Z" fill="${color}" stroke="white" stroke-width="2" stroke-linejoin="round"/>
+                    </svg>
+                `;
+            } else if (shape === 'pentagon') {
+                iconHtml = `
+                    <svg width="${size}" height="${size}" viewBox="0 0 24 24" style="overflow: visible">
+                        <path d="M12 2L22 9L18 21H6L2 9L12 2Z" fill="${color}" stroke="white" stroke-width="2" stroke-linejoin="round"/>
+                    </svg>
+                `;
+            } else if (shape === 'star') {
+                iconHtml = `
+                    <svg width="${size}" height="${size}" viewBox="0 0 24 24" style="overflow: visible">
+                        <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" fill="${color}" stroke="white" stroke-width="2" stroke-linejoin="round"/>
+                    </svg>
+                `;
+            } else {
+                iconHtml = `<div class="carto-legend-color" style="background: ${color}"></div>`;
+            }
+
             html += `
                 <div class="carto-legend-item">
-                    <div class="carto-legend-color" style="background: ${color}"></div>
+                    ${iconHtml}
                     <span>${label}</span>
                 </div>
             `;

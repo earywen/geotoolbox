@@ -31,7 +31,8 @@ def _layer(label: str, url_key: str, layer_name: str, color: str,
            wfs_version: str = "1.1.0", fmt: str = "GML2",
            columns_mapping: Optional[Dict[str, str]] = None,
            id_field: Optional[str] = None,
-           heavy: bool = False) -> Dict[str, Any]:
+           heavy: bool = False,
+           shape: str = "circle") -> Dict[str, Any]:
     """Helper to create layer config with consistent structure."""
     cfg = {
         "label": label,
@@ -42,6 +43,7 @@ def _layer(label: str, url_key: str, layer_name: str, color: str,
         "color": color,
         "type": layer_type,
         "name_field": name_field,
+        "shape": shape,
     }
     if columns_mapping:
         cfg["columns_mapping"] = columns_mapping
@@ -174,20 +176,23 @@ LAYER_CATEGORIES: Dict[str, Dict[str, Any]] = {
                 "BSS_EAU_POINT",
                 "#3b82f6", "point", "designation",
                 id_field="bss_id",
-                columns_mapping={"code_bss": "Code", "designation": "Nom", "z_orifice": "Alt"}
+                columns_mapping={"code_bss": "Code", "designation": "Nom", "z_orifice": "Alt"},
+                shape="circle"
             ),
             # BRGM ADES - these require WMS GetFeatureInfo (marked for future)
             "QUALITO": _layer(
                 "Qualité Eaux Souterraines (ADES)", "brgm_ades_url",
                 "point_eau_qualito",
                 "#8b5cf6", "point", "code_bss",
-                columns_mapping={"code_bss": "Code BSS", "masse_eau": "Masse d'eau"}
+                columns_mapping={"code_bss": "Code BSS", "masse_eau": "Masse d'eau"},
+                shape="hexagon"
             ),
             "PIEZO": _layer(
                 "Piézomètres (ADES)", "brgm_ades_url",
                 "point_eau_piezo",
                 "#a855f7", "point", "code_bss",
-                columns_mapping={"code_bss": "Code BSS", "niveau": "Niveau"}
+                columns_mapping={"code_bss": "Code BSS", "niveau": "Niveau"},
+                shape="diamond"
             ),
         }
     },
@@ -205,7 +210,8 @@ LAYER_CATEGORIES: Dict[str, Dict[str, Any]] = {
                 "Sites Pollués (CASIAS/BASOL)", "georisques_url",
                 "SSP_ETS_GE_POINT",
                 "#ef4444", "point", "nom_etablissement",
-                columns_mapping={"code_metier": "ID", "nom_etablissement": "Nom", "etat_activite": "Etat"}
+                columns_mapping={"code_metier": "ID", "nom_etablissement": "Nom", "etat_activite": "Etat"},
+                shape="square"
             ),
             "SIS": _layer(
                 "Secteurs Information Sols", "georisques_url",
@@ -247,7 +253,8 @@ LAYER_CATEGORIES: Dict[str, Dict[str, Any]] = {
                 "Établissements Pollueurs (ICPE)", "brgm_georisques_url",
                 "ETABLISSEMENTS_POLLUEURS",
                 "#f97316", "point", "nom_etablissement",
-                columns_mapping={"nom_etablissement": "Nom", "code_aiot": "Code AIOT"}
+                columns_mapping={"nom_etablissement": "Nom", "code_aiot": "Code AIOT"},
+                shape="triangle"
             ),
         }
     },

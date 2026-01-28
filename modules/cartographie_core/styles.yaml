@@ -19,7 +19,7 @@ layers:
   SSP:
     type: point
     color: '#ef4444'
-    shape: triangle
+    shape: square
     size: 3.6
     outline_color: '#000000'
     label_field: code_metier
@@ -75,7 +75,7 @@ layers:
   ICPE:
     type: point
     color: '#f97316'
-    shape: square
+    shape: triangle
     size: 3.0
     outline_color: '#000000'
     label_field: nom_etablissement
@@ -85,9 +85,29 @@ layers:
   ETABLISSEMENTS_POLLUEURS:
     type: point
     color: '#f97316'
-    shape: square
+    shape: triangle
     size: 3.0
     outline_color: '#000000'
     label_field: nom_etablissement
+    label_size: 8
+    buffer_size: 1.0
+
+  QUALITO:
+    type: point
+    color: '#8b5cf6'
+    shape: hexagon
+    size: 2.8
+    outline_color: '#000000'
+    label_field: code_bss
+    label_size: 8
+    buffer_size: 1.0
+
+  PIEZO:
+    type: point
+    color: '#a855f7'
+    shape: diamond
+    size: 3.2
+    outline_color: '#000000'
+    label_field: code_bss
     label_size: 8
     buffer_size: 1.0
